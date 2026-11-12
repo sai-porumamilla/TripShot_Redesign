@@ -23,4 +23,4 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 .venv/
-CLAUDE.md
+CLAUDE.local.md
