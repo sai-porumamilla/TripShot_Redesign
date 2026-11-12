@@ -8,7 +8,7 @@ A redesign prototype of TripShot, the shuttle tracker the University of Cincinna
 
 - It must be written in **Svelte/SvelteKit and JavaScript**. Use JS with JSDoc types, not TypeScript files.
 - It must be **publicly hosted** so graders can test it. It is hosted on GitHub Pages (see Deployment).
-- **No backend is needed.** Shuttle routes, stops, vehicle positions and ETAs should be mock data in `src/lib/` (static JSON/JS, plus simulated updates on the client if needed).
+- **Live data comes from the proxy in `proxy/`** (see "Live data proxy"), not from mock data. The app is still fully static on GitHub Pages and only calls the proxy from the browser.
 - Spend the effort on the core redesigned flows: a main page and one or two subpages. Skip login and settings pages unless they show a redesign goal.
 - Deadlines: code is due Nov 16, documentation Nov 17, presentations Nov 18 and 20.
 
@@ -42,7 +42,23 @@ npx vitest run -t "name of test"        # tests matching a name
 - `fallback: '404.html'` serves the SPA shell for unknown paths. A route with dynamic params (for example `/route/[id]`) must either be reachable through links from prerendered pages or list its params with `entries()`. Otherwise prerendering skips it.
 - Every push to `main` deploys. One-time setup: in the repo, go to Settings → Pages → Source and choose "GitHub Actions".
 
+## Live data proxy (`proxy/`)
+
+UC's TripShot API (`uc.tripshot.com`) needs a login and sends no CORS headers, so the browser can't call it directly. `proxy/` is a Cloudflare Worker that logs in with the `TRIPSHOT_USER` / `TRIPSHOT_PASSWORD` secrets and serves trimmed, cached, read-only JSON at `https://tripshot-proxy.tripshot-proxy.workers.dev`:
+
+| Endpoint               | Returns                                                                                                                    | Cache |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `GET /routes`          | `[{ id, name, color }]` for today                                                                                          | 5 min |
+| `GET /stops`           | `[{ id, name, loc: [lat, lng] }]`                                                                                          | 1 h   |
+| `GET /routes/:id`      | `{ id, name, color, headwaySec, stops: [{ id, name, loc }], path: [[lat, lng], ...] }`                                     | 5 min |
+| `GET /routes/:id/live` | `{ at, vehicles: [{ name, loc, bearing, speed, seen, capacity, occupancy, next: [{ stopId, eta, scheduled, status }] }] }` | 10 s  |
+
+- Run it with `cd proxy && npm run dev` (port 8787; reads secrets from the gitignored `proxy/.dev.vars`). Deploy with `npm run deploy`.
+- **Keep it an allow-list.** Never add a pass-through to arbitrary upstream paths: the session belongs to a real user account, and a pass-through would let anyone act as that user.
+- **Never return internal fields.** Upstream live data includes `driverId`, `shiftId`, `deviceId` and ride histories. Map responses to only what the UI needs.
+- Allowed CORS origins are listed in `ALLOWED_ORIGINS` in `proxy/src/index.js`. Add a port there if you run the app on a new one.
+- Upstream auth: `POST /v1/webLogin` with `{ username, password }` returns `{ token, sessionId, expiresIn }`. Every call needs `Authorization: Bearer <token>` **and** `x-session-id: <sessionId>`. Sessions last 24 h.
+
 ## Notes
 
 - `REQUIREMENTS.md` is listed in `.prettierignore` so the course text keeps its original formatting. Don't reformat it.
-- This file (`CLAUDE.md`) is in `.gitignore`, which the user chose.

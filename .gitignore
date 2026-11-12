@@ -24,3 +24,4 @@ vite.config.ts.timestamp-*
 
 .venv/
 CLAUDE.local.md
+.dev.vars*
