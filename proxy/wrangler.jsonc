@@ -1,0 +1,12 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "tripshot-proxy",
+	"main": "src/index.js",
+	"compatibility_date": "2026-11-12",
+	"observability": {
+		"enabled": true,
+		"traces": { "enabled": true }
+	}
+	// Secrets (set with `npx wrangler secret put`): TRIPSHOT_USER, TRIPSHOT_PASSWORD
+	// Local dev reads them from proxy/.dev.vars (gitignored).
+}
