@@ -9,6 +9,7 @@
 	import busSvg from '#lib/assets/map/bus-icon.svg';
 	import recenterSvg from '#lib/assets/map/recenter.svg';
 	import homeSvg from '#lib/assets/map/home-icon.svg';
+	import closedSvg from '#lib/assets/map/closed-stop.svg';
 	import { distanceM } from '#lib/departures.js';
 
 	/**
@@ -24,7 +25,8 @@
 	 *   label: string,
 	 *   yourLabel?: string,
 	 *   destLabel?: string | null,
-	 *   goal?: number[] | null
+	 *   goal?: number[] | null,
+	 *   closure?: { closed: { name: string, loc: number[] }, road: number[][], roadLabel: string } | null
 	 * }}
 	 */
 	let {
@@ -39,7 +41,8 @@
 		label,
 		yourLabel = 'Your stop',
 		destLabel = null,
-		goal = null
+		goal = null,
+		closure = null
 	} = $props();
 
 	/** @type {HTMLDivElement} */
@@ -137,11 +140,56 @@
 			})
 				.bindTooltip(yourLabel, {
 					permanent: true,
-					direction: 'bottom',
-					offset: [0, 12],
+					// closure maps: to the right, clear of the arrow and the other labels
+					direction: closure ? 'right' : 'bottom',
+					offset: closure ? [12, 0] : [0, 12],
 					className: 'map-label'
 				})
 				.addTo(routeLayer);
+		// service change: closed road, closed stop, and an arrow to where boarding moved
+		if (closure && your) {
+			Lf.polyline(closure.road.map(ll), {
+				color: '#16181c',
+				weight: 5,
+				opacity: 0.85,
+				dashArray: '4 3',
+				interactive: false
+			}).addTo(routeLayer);
+			// label the road at its west end, away from the "board here" label by the temporary stop
+			const west = closure.road.reduce((a, b) => (b[1] < a[1] ? b : a));
+			Lf.marker(ll(west), {
+				icon: Lf.divIcon({ html: '', className: 'pin', iconSize: [0, 0] }),
+				interactive: false,
+				keyboard: false
+			})
+				.bindTooltip(closure.roadLabel, {
+					permanent: true,
+					direction: 'right',
+					offset: [-10, -22],
+					className: 'map-label'
+				})
+				.addTo(routeLayer);
+			Lf.marker(ll(closure.closed.loc), {
+				icon: Lf.divIcon(img(closedSvg, 20)),
+				title: `${closure.closed.name} (closed)`,
+				keyboard: false,
+				zIndexOffset: 300
+			})
+				.bindTooltip(`${closure.closed.name} · closed`, {
+					permanent: true,
+					direction: 'bottom',
+					offset: [0, 10],
+					className: 'map-label'
+				})
+				.addTo(routeLayer);
+			for (const line of arrow(closure.closed.loc, your.loc))
+				Lf.polyline(line.map(ll), {
+					color: '#cf0a2c',
+					weight: 2.5,
+					dashArray: line.length > 3 ? '4 4' : undefined,
+					interactive: false
+				}).addTo(routeLayer);
+		}
 		// final walk from the drop-off to the destination door (trip previews)
 		if (goal && dest && distanceM(goal, dest.loc) > 40) {
 			Lf.polyline([ll(dest.loc), ll(goal)], {
@@ -168,7 +216,7 @@
 			keyboard: false,
 			zIndexOffset: 400
 		}).addTo(routeLayer);
-		if (!fitted && trip.length > 1) (recenter(), (fitted = true));
+		if (!fitted && (trip.length > 1 || closure)) (recenter(), (fitted = true));
 	});
 
 	// Bus: glide to each new position instead of jumping
@@ -203,15 +251,59 @@
 		return () => cancelAnimationFrame(raf);
 	});
 
+	/**
+	 * A curved arrow from `a` to `b` (a gentle arc plus a two-stroke arrowhead), in lat/lng.
+	 * Works in a locally flat x/y (longitude scaled by cos(latitude)); fine at campus scale.
+	 */
+	function arrow(/** @type {number[]} */ a, /** @type {number[]} */ b) {
+		const k = Math.cos((a[0] * Math.PI) / 180);
+		const [ax, ay, bx, by] = [a[1] * k, a[0], b[1] * k, b[0]];
+		const [dx, dy] = [bx - ax, by - ay];
+		const len = Math.hypot(dx, dy);
+		const [cx, cy] = [(ax + bx) / 2 - dy * 0.25, (ay + by) / 2 + dx * 0.25]; // bend to one side
+		const toLL = (/** @type {number} */ x, /** @type {number} */ y) => [y, x / k];
+		const shrink = 0.08; // stop short of the marker so the head stays visible
+		const curve = [];
+		for (let i = 0; i <= 16; i++) {
+			const t = (i / 16) * (1 - shrink);
+			const x = (1 - t) ** 2 * ax + 2 * (1 - t) * t * cx + t * t * bx;
+			const y = (1 - t) ** 2 * ay + 2 * (1 - t) * t * cy + t * t * by;
+			curve.push(toLL(x, y));
+		}
+		const [ex, ey] = [curve[16][1] * k, curve[16][0]];
+		const [px, py] = [curve[15][1] * k, curve[15][0]];
+		const ang = Math.atan2(ey - py, ex - px),
+			h = len * 0.12;
+		const wing = (/** @type {number} */ d) =>
+			toLL(ex - h * Math.cos(ang + d), ey - h * Math.sin(ang + d));
+		return [curve, [wing(0.5), toLL(ex, ey), wing(-0.5)]];
+	}
+
 	function recenter() {
 		if (!L || !map) return;
-		const pts = [...trip, here, ...(bus?.loc ? [bus.loc] : []), ...(goal ? [goal] : [])].map(
-			(p) => /** @type {[number, number]} */ ([p[0], p[1]])
-		);
+		const extra = closure ? [closure.closed.loc, ...closure.road, ...stops.map((s) => s.loc)] : [];
+		const pts = [
+			...trip,
+			here,
+			...(bus?.loc ? [bus.loc] : []),
+			...(goal ? [goal] : []),
+			...extra
+		].map((p) => /** @type {[number, number]} */ ([p[0], p[1]]));
 		if (pts.length) {
 			// small maps (trip previews) get proportionally less padding
 			const pad = Math.min(28, Math.round(el.clientHeight / 6));
-			map.fitBounds(L.latLngBounds(pts), { padding: [pad, pad], maxZoom: 17 });
+			// closure maps carry labels beside their points ("Board here today" sits to the right
+			// of its stop), so leave extra room on the right and a little all round
+			const [w, h] = [el.clientWidth, el.clientHeight];
+			const topLeft = closure ? [Math.round(w / 8), Math.round(h / 5)] : [pad, pad];
+			const bottomRight = closure
+				? [Math.min(150, Math.round(w / 2.6)), Math.round(h / 5)]
+				: [pad, pad];
+			map.fitBounds(L.latLngBounds(pts), {
+				paddingTopLeft: /** @type {[number, number]} */ (topLeft),
+				paddingBottomRight: /** @type {[number, number]} */ (bottomRight),
+				maxZoom: 17
+			});
 		}
 	}
 </script>

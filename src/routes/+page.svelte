@@ -3,6 +3,8 @@
 	import { getJSON } from '#lib/api.js';
 	import { departures, nearbyStops, routeAbbrev, textOn } from '#lib/departures.js';
 	import { here, locate } from '#lib/here.svelte.js';
+	import RouteMap from '#lib/RouteMap.svelte';
+	import { applyServiceChange, scenarioFrom } from '#lib/serviceChanges.js';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
@@ -10,8 +12,11 @@
 	let stops = $state(/** @type {{ id: string, name: string, loc: number[] }[] | null} */ (null));
 	let failed = $state(false);
 	let now = $state(Date.now());
+	/** Active service change (only via `?scenario=…` today: TripShot has no structured closures). */
+	let change = $state(/** @type {import('#lib/serviceChanges.js').ServiceChange | null} */ (null));
 
 	onMount(() => {
+		change = scenarioFrom(location.search);
 		locate();
 		getJSON('/stops').then(
 			(s) => (stops = s),
@@ -28,8 +33,32 @@
 		return () => (clearInterval(poll), clearInterval(tick));
 	});
 
-	const list = $derived(live && stops ? departures(live.routes, stops, here.loc, now) : null);
-	const nearby = $derived(stops ? nearbyStops(stops, here.loc).slice(0, 2) : []);
+	// Live data with the service change (if any) applied: buses serve the temporary stop instead.
+	const data = $derived(
+		live && stops
+			? change
+				? applyServiceChange(change, stops, live.routes)
+				: { stops, routes: live.routes, closed: null }
+			: null
+	);
+	const list = $derived(data ? departures(data.routes, data.stops, here.loc, now) : null);
+	const nearby = $derived(data ? nearbyStops(data.stops, here.loc).slice(0, 2) : []);
+	const scenarioQuery = $derived(change ? `&scenario=${change.id}` : '');
+
+	// A route that serves the moved stop, drawn faded for context on the service-change map
+	const moved = $derived.by(() => {
+		const c = change;
+		if (!c || !data?.closed) return null;
+		return data.routes.find((r) => r.stopIds?.includes(c.temp.id)) ?? null;
+	});
+	let movedPath = $state(/** @type {number[][]} */ ([]));
+	$effect(() => {
+		if (moved)
+			getJSON(`/routes/${moved.id}`).then(
+				(d) => (movedPath = d.path),
+				() => {}
+			);
+	});
 	const from = $derived(here.real ? 'you' : here.name);
 
 	// Service hours from the design: day routes until 10 PM, NightRide 10 PM–2 AM (campus time).
@@ -43,11 +72,13 @@
 		) % 24
 	);
 	const notice = $derived(
-		hour >= 7 && hour < 22
-			? 'Day routes end at 10 PM. NightRide North and Southwest take over until 2 AM.'
-			: hour >= 22 || hour < 2
-				? 'NightRide North and Southwest are running until 2 AM.'
-				: 'Shuttles aren’t running right now. Day routes start again in the morning.'
+		change
+			? change.notice
+			: hour >= 7 && hour < 22
+				? 'Day routes end at 10 PM. NightRide North and Southwest take over until 2 AM.'
+				: hour >= 22 || hour < 2
+					? 'NightRide North and Southwest are running until 2 AM.'
+					: 'Shuttles aren’t running right now. Day routes start again in the morning.'
 	);
 </script>
 
@@ -69,6 +100,31 @@
 </form>
 
 <p class="notice"><Icon name="notice-clock" />{notice}</p>
+{#if change}
+	<p class="replay">{change.replayNote} <a href={resolve('/')}>Exit replay</a></p>
+{/if}
+
+{#snippet changeMap()}
+	{#if change && data?.closed}
+		<RouteMap
+			color={moved?.color ?? '#16181c'}
+			path={movedPath}
+			trip={[]}
+			stops={[change.temp]}
+			yourStopId={change.temp.id}
+			yourLabel="Board here today"
+			bus={null}
+			here={here.loc}
+			closure={{ closed: data.closed, road: change.road, roadLabel: change.roadLabel }}
+			label="Map: {data.closed.name} is closed; board at {change.temp
+				.name} instead. Your walk there is shown."
+		/>
+	{/if}
+{/snippet}
+
+{#if change && data?.closed}
+	<div class="phone change-map">{@render changeMap()}</div>
+{/if}
 
 <div class="columns">
 	<section aria-labelledby="dep-title">
@@ -94,7 +150,7 @@
 					<li>
 						<a
 							class="dep"
-							href="{resolve('/route')}/?id={d.route.id}&stop={d.stop.id}"
+							href="{resolve('/route')}/?id={d.route.id}&stop={d.stop.id}{scenarioQuery}"
 							aria-label="{d.route.name} from {d.stop.name}, {d.minutes === 0
 								? 'arriving now'
 								: `${d.minutes} minutes`}. See the live route."
@@ -125,14 +181,21 @@
 	</section>
 
 	<aside class="desktop">
-		<div class="card">
-			<p class="label">Not sure which route?</p>
-			<h2 class="card-title">Start with your destination.</h2>
-			<p class="card-text">
-				Search a building, dorm, or stop. Compare shuttle options with walking.
-			</p>
-			<a class="action" href="{resolve('/search')}/">Search by destination</a>
-		</div>
+		{#if change && data?.closed}
+			<div class="card">
+				<p class="label">Where to board today</p>
+				<div class="change-map">{@render changeMap()}</div>
+			</div>
+		{:else}
+			<div class="card">
+				<p class="label">Not sure which route?</p>
+				<h2 class="card-title">Start with your destination.</h2>
+				<p class="card-text">
+					Search a building, dorm, or stop. Compare shuttle options with walking.
+				</p>
+				<a class="action" href="{resolve('/search')}/">Search by destination</a>
+			</div>
+		{/if}
 		<div class="card">
 			<p class="label">Your nearby stops</p>
 			{#each nearby as s (s.stop.id)}
@@ -206,6 +269,23 @@
 	}
 	.notice :global(.icon) {
 		margin-top: 2px;
+	}
+	.replay {
+		margin-top: 6px;
+		font-size: 12px;
+		line-height: 16px;
+		color: var(--muted);
+	}
+	.replay a {
+		color: inherit;
+		font-weight: 700;
+	}
+	.change-map {
+		height: 160px;
+		margin-top: 12px;
+		border: 1px solid #b8bdc8;
+		border-radius: 12px;
+		overflow: hidden;
 	}
 	.sec-head {
 		display: flex;
@@ -421,6 +501,14 @@
 		aside.desktop {
 			display: grid;
 			gap: 24px;
+		}
+		.change-map {
+			height: 196px;
+			margin-top: 14px;
+		}
+		.replay {
+			margin-top: 8px;
+			font-size: 13px;
 		}
 		.card {
 			padding: 23px;

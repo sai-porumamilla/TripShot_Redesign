@@ -4,6 +4,7 @@
 	import { distanceM, nearbyStops, shortName, textOn, walkMinutes } from '#lib/departures.js';
 	import { here, locate } from '#lib/here.svelte.js';
 	import { nearestIndex, pathBetween, pickVehicle, progressRows } from '#lib/route.js';
+	import { applyServiceChange, scenarioFrom } from '#lib/serviceChanges.js';
 	import backWhite from '#lib/assets/icons/back-white.svg';
 	import busWhite from '#lib/assets/icons/bus-white.svg';
 	import busInk from '#lib/assets/icons/bus-ink.svg';
@@ -21,10 +22,12 @@
 	let live = $state(/** @type {{ vehicles: import('#lib/route.js').Vehicle[] } | null} */ (null));
 	let failed = $state(false);
 	let now = $state(Date.now());
+	let change = $state(/** @type {import('#lib/serviceChanges.js').ServiceChange | null} */ (null));
 
 	onMount(() => {
 		// read the query in the browser: the page is prerendered without one
 		const q = new URLSearchParams(location.search);
+		change = scenarioFrom(location.search);
 		const id = q.get('id');
 		if (!id) return void (failed = true);
 		params = { id, stop: q.get('stop'), to: q.get('to') };
@@ -44,18 +47,26 @@
 		return () => (clearInterval(poll), clearInterval(tick));
 	});
 
-	const byId = $derived(new Map((detail?.stops ?? []).map((s) => [s.id.toLowerCase(), s])));
+	// Apply an active service change: the closed stop is replaced by the temporary one
+	const view = $derived(
+		detail && change
+			? applyServiceChange(change, detail.stops, [{ vehicles: live?.vehicles ?? [] }])
+			: null
+	);
+	const routeStops = $derived(view?.closed ? view.stops : (detail?.stops ?? []));
+	const vehicles = $derived(view?.closed ? view.routes[0].vehicles : (live?.vehicles ?? []));
+	const byId = $derived(new Map(routeStops.map((s) => [s.id.toLowerCase(), s])));
 	const stopOf = (/** @type {string} */ id) => byId.get(id.toLowerCase());
 	// your stop: the one you tapped, or the route's nearest stop to you
 	const your = $derived(
 		detail
 			? (params?.stop && stopOf(params.stop)) ||
-					nearbyStops(detail.stops, here.loc, Infinity)[0]?.stop
+					nearbyStops(routeStops, here.loc, Infinity)[0]?.stop
 			: undefined
 	);
 	const dest = $derived(params?.to ? stopOf(params.to) : undefined);
 	const walk = $derived(your ? walkMinutes(distanceM(here.loc, your.loc)) : 0);
-	const pick = $derived(live && your ? pickVehicle(live.vehicles, your.id, now) : null);
+	const pick = $derived(live && your ? pickVehicle(vehicles, your.id, now) : null);
 	const eta = $derived(pick ? Date.parse(pick.at.eta) : null);
 	const minutes = $derived(eta === null ? null : Math.max(0, Math.round((eta - now) / 60000)));
 	const rows = $derived(
@@ -180,8 +191,11 @@
 							{color}
 							path={detail.path}
 							{trip}
-							stops={detail.stops}
+							stops={routeStops}
 							yourStopId={your.id}
+							closure={view?.closed && change
+								? { closed: view.closed, road: change.road, roadLabel: change.roadLabel }
+								: null}
 							destId={dest?.id ?? null}
 							{bus}
 							here={here.loc}
