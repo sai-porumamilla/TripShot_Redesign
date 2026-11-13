@@ -32,6 +32,9 @@ npx vitest run -t "name of test"        # tests matching a name
 - There is **no `svelte.config.js`**. SvelteKit is configured inside `vite.config.js` through the `sveltekit({...})` plugin options: the adapter, `paths` and compiler options. The vitest config is in the same file.
 - Import shared code with the `#lib` / `#lib/*` subpath imports defined in `package.json` (they map to `src/lib`).
 - Tests live next to their source as `*.spec.js` / `*.test.js` under `src/` and run in the Node environment. `expect.requireAssertions` is on, so every test must assert something.
+- **One responsive app, two layouts.** Below 900px is the phone design (bottom nav); 900px and up is the desktop design (top bar + sticky sidebar). The shell lives in `src/routes/+layout.svelte`; pages only render their content. Figma: page "Final design", phone frames 1–8 are drawn at 2× (halve their px), desktop frames 01–08 at 1×.
+- Shared code in `src/lib`: `api.js` (proxy URL + `getJSON`), `departures.js` (pure, tested logic: distances, walk times, catchable buses, route badge labels, text color on route color), `here.svelte.js` (rider location; defaults to Langsam Library and only switches to real geolocation when it's within 3 km of campus, so the demo works from anywhere), `Icon.svelte` (Figma icons in `src/lib/assets/icons/`, placed at Figma's exact offsets).
+- **Color system** (tokens in `src/app.css`): buttons UC Black; route color only for route context (badges, route headers, map lines); UC red only for alerts/delays/closures; TripShot magenta only for the logo; route text color from `textOn()`.
 
 ## Deployment (GitHub Pages)
 
@@ -48,6 +51,7 @@ UC's TripShot API (`uc.tripshot.com`) needs a login and sends no CORS headers, s
 
 | Endpoint               | Returns                                                                                                                    | Cache |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `GET /live`            | `{ at, routes: [{ id, name, color, headwaySec, stopIds, vehicles }] }`: every route today, one call (used by Running now)  | 10 s  |
 | `GET /routes`          | `[{ id, name, color }]` for today                                                                                          | 5 min |
 | `GET /stops`           | `[{ id, name, loc: [lat, lng] }]`                                                                                          | 1 h   |
 | `GET /routes/:id`      | `{ id, name, color, headwaySec, stops: [{ id, name, loc }], path: [[lat, lng], ...] }`                                     | 5 min |
