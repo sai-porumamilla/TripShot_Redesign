@@ -3,6 +3,7 @@
 	import { getJSON } from '#lib/api.js';
 	import { departures, nearbyStops, routeAbbrev, textOn } from '#lib/departures.js';
 	import { here, locate } from '#lib/here.svelte.js';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 
 	let live = $state(/** @type {{ routes: any[] } | null} */ (null));
@@ -93,22 +94,30 @@
 		{:else}
 			<ul class="deps" aria-live="polite">
 				{#each list as d (d.route.id)}
-					<li class="dep">
-						<span
-							class="badge"
-							class:long={routeAbbrev(d.route.name).length > 2}
-							style:background={d.route.color}
-							style:color={textOn(d.route.color)}>{routeAbbrev(d.route.name)}</span
+					<li>
+						<a
+							class="dep"
+							href="{resolve('/route')}/?id={d.route.id}&stop={d.stop.id}"
+							aria-label="{d.route.name} from {d.stop.name}, {d.minutes === 0
+								? 'arriving now'
+								: `${d.minutes} minutes`}. See the live route."
 						>
-						<div class="info">
-							<h3>{d.route.name}</h3>
-							<p>{d.stop.name} · {d.walk} min walk</p>
-						</div>
-						<div class="eta">
-							<strong>{d.minutes === 0 ? 'Now' : `${d.minutes} min`}</strong>
-							<span class="live">• Live</span>
-						</div>
-						<span class="desktop chev"><Icon name="chevron" /></span>
+							<span
+								class="badge"
+								class:long={routeAbbrev(d.route.name).length > 2}
+								style:background={d.route.color}
+								style:color={textOn(d.route.color)}>{routeAbbrev(d.route.name)}</span
+							>
+							<div class="info">
+								<h3>{d.route.name}</h3>
+								<p>{d.stop.name} · {d.walk} min walk</p>
+							</div>
+							<div class="eta">
+								<strong>{d.minutes === 0 ? 'Now' : `${d.minutes} min`}</strong>
+								<span class="live">• Live</span>
+							</div>
+							<span class="desktop chev"><Icon name="chevron" /></span>
+						</a>
 					</li>
 				{/each}
 			</ul>
@@ -221,6 +230,8 @@
 		margin-top: 8px;
 	}
 	.dep {
+		color: inherit;
+		text-decoration: none;
 		display: grid;
 		grid-template-columns: auto 1fr auto;
 		align-items: center;
@@ -230,6 +241,9 @@
 		background: var(--surface);
 		border: 1px solid var(--line);
 		border-radius: 14px;
+	}
+	.dep:hover {
+		border-color: var(--muted);
 	}
 	.badge {
 		display: grid;
