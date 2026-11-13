@@ -8,6 +8,8 @@
 	import youSvg from '#lib/assets/map/you.svg';
 	import busSvg from '#lib/assets/map/bus-icon.svg';
 	import recenterSvg from '#lib/assets/map/recenter.svg';
+	import homeSvg from '#lib/assets/map/home-icon.svg';
+	import { distanceM } from '#lib/departures.js';
 
 	/**
 	 * @type {{
@@ -19,10 +21,26 @@
 	 *   destId?: string | null,
 	 *   bus: { loc: number[], stale: boolean } | null,
 	 *   here: number[],
-	 *   label: string
+	 *   label: string,
+	 *   yourLabel?: string,
+	 *   destLabel?: string | null,
+	 *   goal?: number[] | null
 	 * }}
 	 */
-	let { color, path, trip, stops, yourStopId, destId = null, bus, here, label } = $props();
+	let {
+		color,
+		path,
+		trip,
+		stops,
+		yourStopId,
+		destId = null,
+		bus,
+		here,
+		label,
+		yourLabel = 'Your stop',
+		destLabel = null,
+		goal = null
+	} = $props();
 
 	/** @type {HTMLDivElement} */
 	let el;
@@ -103,7 +121,7 @@
 				title: dest.name,
 				keyboard: false
 			})
-				.bindTooltip(dest.name, {
+				.bindTooltip(destLabel ?? dest.name, {
 					permanent: true,
 					direction: 'right',
 					offset: [12, 0],
@@ -117,13 +135,33 @@
 				keyboard: false,
 				zIndexOffset: 500
 			})
-				.bindTooltip('Your stop', {
+				.bindTooltip(yourLabel, {
 					permanent: true,
 					direction: 'bottom',
 					offset: [0, 12],
 					className: 'map-label'
 				})
 				.addTo(routeLayer);
+		// final walk from the drop-off to the destination door (trip previews)
+		if (goal && dest && distanceM(goal, dest.loc) > 40) {
+			Lf.polyline([ll(dest.loc), ll(goal)], {
+				color: '#16181c',
+				weight: 3,
+				dashArray: '2 8',
+				lineCap: 'round',
+				interactive: false
+			}).addTo(routeLayer);
+			Lf.marker(ll(goal), {
+				icon: Lf.divIcon({
+					html: `<span class="home"><img src="${homeSvg}" alt="" width="14" height="14"></span>`,
+					className: 'pin',
+					iconSize: [24, 24],
+					iconAnchor: [12, 12]
+				}),
+				keyboard: false,
+				title: 'Destination'
+			}).addTo(routeLayer);
+		}
 		Lf.marker(ll(here), {
 			icon: Lf.divIcon(img(youSvg, 40)),
 			interactive: false,
@@ -167,10 +205,14 @@
 
 	function recenter() {
 		if (!L || !map) return;
-		const pts = [...trip, here, ...(bus?.loc ? [bus.loc] : [])].map(
+		const pts = [...trip, here, ...(bus?.loc ? [bus.loc] : []), ...(goal ? [goal] : [])].map(
 			(p) => /** @type {[number, number]} */ ([p[0], p[1]])
 		);
-		if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [28, 28], maxZoom: 17 });
+		if (pts.length) {
+			// small maps (trip previews) get proportionally less padding
+			const pad = Math.min(28, Math.round(el.clientHeight / 6));
+			map.fitBounds(L.latLngBounds(pts), { padding: [pad, pad], maxZoom: 17 });
+		}
 	}
 </script>
 
@@ -211,6 +253,15 @@
 		border-radius: 18px;
 		background: var(--ink);
 		box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+	}
+	.map :global(.home) {
+		display: grid;
+		place-items: center;
+		width: 24px;
+		height: 24px;
+		border: 2px solid #fff;
+		border-radius: 6px;
+		background: var(--ink);
 	}
 	.map :global(.stale .bus) {
 		background: var(--muted);

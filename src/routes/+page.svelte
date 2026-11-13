@@ -49,9 +49,6 @@
 				? 'NightRide North and Southwest are running until 2 AM.'
 				: 'Shuttles aren’t running right now. Day routes start again in the morning.'
 	);
-
-	/** @type {HTMLInputElement} */
-	let searchInput;
 </script>
 
 <svelte:head>
@@ -62,11 +59,11 @@
 <h1>Running now</h1>
 <p class="sub desktop">Next departures near {from}</p>
 
-<form class="search" role="search" onsubmit={(e) => e.preventDefault()}>
+<form class="search" role="search" method="get" action="{resolve('/search')}/">
 	<label class="field">
 		<Icon name="search" />
 		<span class="visually-hidden">Where to?</span>
-		<input bind:this={searchInput} type="search" placeholder="Where to? Building, dorm, stop" />
+		<input name="to" type="search" placeholder="Where to? Building, dorm, stop" />
 	</label>
 	<button class="desktop">Find a trip</button>
 </form>
@@ -134,7 +131,7 @@
 			<p class="card-text">
 				Search a building, dorm, or stop. Compare shuttle options with walking.
 			</p>
-			<button class="action" onclick={() => searchInput.focus()}>Search by destination</button>
+			<a class="action" href="{resolve('/search')}/">Search by destination</a>
 		</div>
 		<div class="card">
 			<p class="label">Your nearby stops</p>
@@ -326,6 +323,9 @@
 		}
 		.search button,
 		.action {
+			display: grid;
+			place-items: center;
+			text-decoration: none;
 			height: 48px;
 			border: 0;
 			border-radius: 10px;
