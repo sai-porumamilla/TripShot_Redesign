@@ -1,0 +1,537 @@
+[
+	{
+		"name": "101 East Corry",
+		"loc": [39.12859, -84.5072],
+		"kind": "Apartments"
+	},
+	{
+		"name": "1819 Innovation Hub",
+		"loc": [39.13238, -84.49702],
+		"kind": "Building"
+	},
+	{
+		"name": "3336 Jefferson",
+		"loc": [39.13526, -84.52673],
+		"kind": "Apartments"
+	},
+	{
+		"name": "60 West Charlton",
+		"loc": [39.131, -84.51255],
+		"kind": "Building"
+	},
+	{
+		"name": "Alms Building",
+		"loc": [39.13395, -84.51945],
+		"kind": "Building"
+	},
+	{
+		"name": "Alpha Sigma Phi Fraternity",
+		"loc": [39.13325, -84.52135],
+		"kind": "Apartments"
+	},
+	{
+		"name": "Aronoff Center",
+		"loc": [39.13433, -84.5187],
+		"kind": "Building"
+	},
+	{
+		"name": "Arts & Sciences Hall",
+		"loc": [39.13187, -84.51908],
+		"kind": "Building"
+	},
+	{
+		"name": "Auburndale",
+		"loc": [39.12754, -84.50826],
+		"kind": "Apartments"
+	},
+	{
+		"name": "Baldwin Hall",
+		"loc": [39.13286, -84.51673],
+		"kind": "Building"
+	},
+	{
+		"name": "Blegen Library",
+		"loc": [39.12959, -84.51931],
+		"kind": "Library"
+	},
+	{
+		"name": "CECH Library",
+		"loc": [39.13017, -84.51971],
+		"kind": "Library"
+	},
+	{
+		"name": "CP Cincy",
+		"loc": [39.12647, -84.50408],
+		"kind": "Dorm"
+	},
+	{
+		"name": "Calhoun Garage",
+		"loc": [39.12894, -84.51512],
+		"kind": "Garage"
+	},
+	{
+		"name": "Calhoun Hall",
+		"loc": [39.12871, -84.5171],
+		"kind": "Dorm"
+	},
+	{
+		"name": "Campus Green Garage",
+		"loc": [39.13496, -84.51441],
+		"kind": "Garage"
+	},
+	{
+		"name": "Carl H. Lindner Hall",
+		"loc": [39.13384, -84.51446],
+		"kind": "Building"
+	},
+	{
+		"name": "Chemistry-Biology Library",
+		"loc": [39.13397, -84.51671],
+		"kind": "Library"
+	},
+	{
+		"name": "Christ College of Nursing and Health Sciences",
+		"loc": [39.1218, -84.50952],
+		"kind": "Building"
+	},
+	{
+		"name": "Clifton Court Garage",
+		"loc": [39.13406, -84.51728],
+		"kind": "Garage"
+	},
+	{
+		"name": "Clifton Court Hall",
+		"loc": [39.13311, -84.51965],
+		"kind": "Building"
+	},
+	{
+		"name": "Clifton View Apartments",
+		"loc": [39.12048, -84.52068],
+		"kind": "Apartments"
+	},
+	{
+		"name": "College of Allied Health and Sciences",
+		"loc": [39.13946, -84.50606],
+		"kind": "Building"
+	},
+	{
+		"name": "College of Engineering & Applied Science Library",
+		"loc": [39.133, -84.51677],
+		"kind": "Library"
+	},
+	{
+		"name": "College of Law Building",
+		"loc": [39.13485, -84.51369],
+		"kind": "Building"
+	},
+	{
+		"name": "Commons Edge North",
+		"loc": [39.1316, -84.51237],
+		"kind": "Building"
+	},
+	{
+		"name": "Corbett Center for Performing Arts",
+		"loc": [39.1295, -84.51831],
+		"kind": "Building"
+	},
+	{
+		"name": "Corry Garage",
+		"loc": [39.12894, -84.51303],
+		"kind": "Garage"
+	},
+	{
+		"name": "Corryville Branch Library",
+		"loc": [39.13195, -84.50884],
+		"kind": "Library"
+	},
+	{
+		"name": "DAAP Annex",
+		"loc": [39.13522, -84.52179],
+		"kind": "Building"
+	},
+	{
+		"name": "DAAP Library",
+		"loc": [39.13445, -84.51926],
+		"kind": "Library"
+	},
+	{
+		"name": "Dabney Hall",
+		"loc": [39.13164, -84.51313],
+		"kind": "Dorm"
+	},
+	{
+		"name": "Daniels Hall",
+		"loc": [39.13142, -84.51177],
+		"kind": "Dorm"
+	},
+	{
+		"name": "Design, Art, and Architecture Addition",
+		"loc": [39.13411, -84.51891],
+		"kind": "Building"
+	},
+	{
+		"name": "Dieterle Vocal Arts Center",
+		"loc": [39.13027, -84.51689],
+		"kind": "Building"
+	},
+	{
+		"name": "Digital Futures",
+		"loc": [39.13416, -84.49472],
+		"kind": "Building"
+	},
+	{
+		"name": "Dyer Hall",
+		"loc": [39.13043, -84.51856],
+		"kind": "Building"
+	},
+	{
+		"name": "Eden Avenue Garage",
+		"loc": [39.13809, -84.50609],
+		"kind": "Garage"
+	},
+	{
+		"name": "French Hall",
+		"loc": [39.1325, -84.51304],
+		"kind": "Building"
+	},
+	{
+		"name": "Gateway Lofts",
+		"loc": [39.12726, -84.51669],
+		"kind": "Apartments"
+	},
+	{
+		"name": "Geology Physics Building",
+		"loc": [39.1334, -84.51848],
+		"kind": "Building"
+	},
+	{
+		"name": "Geology-Mathematics-Physics Library",
+		"loc": [39.13299, -84.51825],
+		"kind": "Library"
+	},
+	{
+		"name": "Health Sciences Building",
+		"loc": [39.13916, -84.50656],
+		"kind": "Building"
+	},
+	{
+		"name": "Hebrew Union College",
+		"loc": [39.13796, -84.52106],
+		"kind": "Building"
+	},
+	{
+		"name": "Hub Cincinnati",
+		"loc": [39.13038, -84.52178],
+		"kind": "Apartments"
+	},
+	{
+		"name": "Jefferson House",
+		"loc": [39.13069, -84.51058],
+		"kind": "Apartments"
+	},
+	{
+		"name": "John R. Braunstein Hall",
+		"loc": [39.13296, -84.5186],
+		"kind": "Building"
+	},
+	{
+		"name": "Kappa Delta",
+		"loc": [39.13149, -84.52133],
+		"kind": "Apartments"
+	},
+	{
+		"name": "Kappa Kappa Gamma Sorority",
+		"loc": [39.13314, -84.52064],
+		"kind": "Apartments"
+	},
+	{
+		"name": "Kettering Lab Complex",
+		"loc": [39.1399, -84.50662],
+		"kind": "Building"
+	},
+	{
+		"name": "Klotter Gardens",
+		"loc": [39.12189, -84.52075],
+		"kind": "Apartments"
+	},
+	{
+		"name": "Kowalewski Hall",
+		"loc": [39.13975, -84.50581],
+		"kind": "Building"
+	},
+	{
+		"name": "Langsam Library",
+		"loc": [39.13444, -84.51561],
+		"kind": "Library"
+	},
+	{
+		"name": "Mantei Center",
+		"loc": [39.13326, -84.51554],
+		"kind": "Building"
+	},
+	{
+		"name": "Marian Spencer Hall",
+		"loc": [39.13365, -84.51216],
+		"kind": "Dorm"
+	},
+	{
+		"name": "MarketPointe",
+		"loc": [39.12904, -84.51713],
+		"kind": "Building"
+	},
+	{
+		"name": "Mary Emery Hall",
+		"loc": [39.13031, -84.51784],
+		"kind": "Building"
+	},
+	{
+		"name": "Memorial Hall",
+		"loc": [39.12953, -84.51712],
+		"kind": "Building"
+	},
+	{
+		"name": "Morgens Hall",
+		"loc": [39.13497, -84.51198],
+		"kind": "Dorm"
+	},
+	{
+		"name": "Myrl H. Shoemaker Center",
+		"loc": [39.13115, -84.51409],
+		"kind": "Building"
+	},
+	{
+		"name": "Old Chemistry",
+		"loc": [39.13326, -84.5176],
+		"kind": "Building"
+	},
+	{
+		"name": "Probasco Auditorium",
+		"loc": [39.13426, -84.52077],
+		"kind": "Building"
+	},
+	{
+		"name": "Rhodes Hall",
+		"loc": [39.13291, -84.51626],
+		"kind": "Building"
+	},
+	{
+		"name": "Richard E. Lindner Center",
+		"loc": [39.13116, -84.51503],
+		"kind": "Building"
+	},
+	{
+		"name": "Rieveschl Hall",
+		"loc": [39.13405, -84.51698],
+		"kind": "Building"
+	},
+	{
+		"name": "Schneider Hall",
+		"loc": [39.13227, -84.51221],
+		"kind": "Dorm"
+	},
+	{
+		"name": "Scioto Hall",
+		"loc": [39.13429, -84.51198],
+		"kind": "Dorm"
+	},
+	{
+		"name": "Sheakley Athletics Performance Center",
+		"loc": [39.12995, -84.5122],
+		"kind": "Building"
+	},
+	{
+		"name": "Siddall Hall",
+		"loc": [39.129, -84.51769],
+		"kind": "Dorm"
+	},
+	{
+		"name": "Sigma Tau Gamma Fraternity",
+		"loc": [39.13358, -84.52096],
+		"kind": "Apartments"
+	},
+	{
+		"name": "Steger Student Life Center",
+		"loc": [39.13238, -84.51654],
+		"kind": "Building"
+	},
+	{
+		"name": "Stratford Court Apartments",
+		"loc": [39.13228, -84.5216],
+		"kind": "Apartments"
+	},
+	{
+		"name": "Stratford Heights Garage",
+		"loc": [39.13087, -84.52136],
+		"kind": "Garage"
+	},
+	{
+		"name": "Stratford Heights Parking Deck",
+		"loc": [39.13089, -84.52285],
+		"kind": "Garage"
+	},
+	{
+		"name": "Swift Hall",
+		"loc": [39.13246, -84.5174],
+		"kind": "Building"
+	},
+	{
+		"name": "Tangeman University Center",
+		"loc": [39.13152, -84.51748],
+		"kind": "Building"
+	},
+	{
+		"name": "Teachers College",
+		"loc": [39.13024, -84.51916],
+		"kind": "Building"
+	},
+	{
+		"name": "The Deacon",
+		"loc": [39.13036, -84.52305],
+		"kind": "Apartments"
+	},
+	{
+		"name": "The Eden - Tower 1",
+		"loc": [39.13301, -84.50543],
+		"kind": "Apartments"
+	},
+	{
+		"name": "The Eden - Tower 2",
+		"loc": [39.13296, -84.50463],
+		"kind": "Apartments"
+	},
+	{
+		"name": "The Murray",
+		"loc": [39.13961, -84.51292],
+		"kind": "Apartments"
+	},
+	{
+		"name": "The Verge",
+		"loc": [39.12742, -84.51871],
+		"kind": "Apartments"
+	},
+	{
+		"name": "Theta Chi Fraternity",
+		"loc": [39.13367, -84.52054],
+		"kind": "Apartments"
+	},
+	{
+		"name": "Triangle Fraternity",
+		"loc": [39.13337, -84.52091],
+		"kind": "Apartments"
+	},
+	{
+		"name": "Turner Hall",
+		"loc": [39.13247, -84.51179],
+		"kind": "Dorm"
+	},
+	{
+		"name": "U Square",
+		"loc": [39.12806, -84.51752],
+		"kind": "Apartments"
+	},
+	{
+		"name": "UC Biosciences Center",
+		"loc": [39.1373, -84.50586],
+		"kind": "Building"
+	},
+	{
+		"name": "UC Health Gardner Neuroscience Institute",
+		"loc": [39.13586, -84.50483],
+		"kind": "Hospital"
+	},
+	{
+		"name": "UC Health Holmes Hospital",
+		"loc": [39.14033, -84.50479],
+		"kind": "Hospital"
+	},
+	{
+		"name": "University Avenue Garage",
+		"loc": [39.13426, -84.51145],
+		"kind": "Garage"
+	},
+	{
+		"name": "University Hall",
+		"loc": [39.13658, -84.50847],
+		"kind": "Building"
+	},
+	{
+		"name": "University Park Apartments North",
+		"loc": [39.12897, -84.51393],
+		"kind": "Dorm"
+	},
+	{
+		"name": "University Park Apartments South",
+		"loc": [39.12843, -84.51519],
+		"kind": "Apartments"
+	},
+	{
+		"name": "University Pavilion",
+		"loc": [39.13093, -84.51857],
+		"kind": "Building"
+	},
+	{
+		"name": "University of Cincinnati Outdoor Student Learning Center",
+		"loc": [39.13525, -84.52218],
+		"kind": "Building"
+	},
+	{
+		"name": "VMAC",
+		"loc": [39.13898, -84.50724],
+		"kind": "Building"
+	},
+	{
+		"name": "Van Wormer Hall",
+		"loc": [39.13074, -84.51925],
+		"kind": "Building"
+	},
+	{
+		"name": "Vera C. Edwards Center",
+		"loc": [39.12898, -84.51265],
+		"kind": "Building"
+	},
+	{
+		"name": "Views on Vine North",
+		"loc": [39.13257, -84.50969],
+		"kind": "Apartments"
+	},
+	{
+		"name": "Views on Vine South",
+		"loc": [39.13201, -84.50957],
+		"kind": "Apartments"
+	},
+	{
+		"name": "Vine Street Flats",
+		"loc": [39.13339, -84.5089],
+		"kind": "Apartments"
+	},
+	{
+		"name": "Vontz Center for Molecular Studies",
+		"loc": [39.1362, -84.5061],
+		"kind": "Building"
+	},
+	{
+		"name": "William Cooper Procter Hall",
+		"loc": [39.13601, -84.50831],
+		"kind": "Building"
+	},
+	{
+		"name": "Wolfson Center",
+		"loc": [39.13418, -84.51812],
+		"kind": "Building"
+	},
+	{
+		"name": "Woodside Garage",
+		"loc": [39.13454, -84.51552],
+		"kind": "Garage"
+	},
+	{
+		"name": "Zimmer Hall",
+		"loc": [39.13347, -84.51682],
+		"kind": "Building"
+	},
+	{
+		"name": "ΣΑΕ",
+		"loc": [39.13196, -84.52107],
+		"kind": "Apartments"
+	}
+]

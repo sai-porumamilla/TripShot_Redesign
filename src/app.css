@@ -1,0 +1,64 @@
+/* Design tokens from the Figma "Final design" page (color system: CLAUDE.md / B2). */
+:root {
+	--bg: #f6f5f2;
+	--surface: #ffffff;
+	--ink: #16181c;
+	--muted: #4e5360;
+	--line: #d6dae3;
+	--action: #000000; /* UC Black: primary buttons */
+	--alert: #cf0a2c; /* UC red: alerts, delays, closures only */
+	--brand: #aa1ef5; /* TripShot magenta: logo only */
+	--live: #2261b4;
+	--notice-bg: #fff4e4;
+	--notice-ink: #874600;
+	--nav-active: #ebeae6;
+
+	font-family: 'Roboto', system-ui, sans-serif;
+	color: var(--ink);
+	background: var(--bg);
+	-webkit-text-size-adjust: 100%;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	background: var(--bg);
+}
+
+h1,
+h2,
+h3,
+p,
+ul {
+	margin: 0;
+}
+
+ul {
+	padding: 0;
+	list-style: none;
+}
+
+button,
+input {
+	font: inherit;
+	color: inherit;
+}
+
+:focus-visible {
+	outline: 3px solid var(--live);
+	outline-offset: 2px;
+}
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+}

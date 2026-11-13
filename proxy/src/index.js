@@ -40,7 +40,9 @@ export default {
 		const parts = new URL(request.url).pathname.split('/').filter(Boolean);
 		/** @type {[string, number, () => Promise<unknown>] | null} */
 		let handler = null;
-		if (parts.length === 1 && parts[0] === 'routes') handler = ['routes', 300, () => routes(env)];
+		if (parts.length === 1 && parts[0] === 'live') handler = ['live', 10, () => liveAll(env)];
+		else if (parts.length === 1 && parts[0] === 'routes')
+			handler = ['routes', 300, () => routes(env)];
 		else if (parts.length === 1 && parts[0] === 'stops')
 			handler = ['stops', 3600, () => stops(env)];
 		else if (parts[0] === 'routes' && UUID.test(parts[1] ?? '')) {
@@ -51,24 +53,36 @@ export default {
 		}
 		if (!handler)
 			return json(
-				{ error: 'not found', endpoints: ['/routes', '/stops', '/routes/:id', '/routes/:id/live'] },
+				{
+					error: 'not found',
+					endpoints: ['/live', '/routes', '/stops', '/routes/:id', '/routes/:id/live']
+				},
 				404,
 				cors
 			);
 
 		const [key, ttl, load] = handler;
 		try {
-			const hit = cache.get(key);
-			if (hit && Date.now() - hit.at < ttl * 1000) return json(hit.data, 200, cors, ttl);
-			const data = await load();
-			cache.set(key, { at: Date.now(), data });
-			return json(data, 200, cors, ttl);
+			return json(await cached(key, ttl, load), 200, cors, ttl);
 		} catch (e) {
 			console.error(JSON.stringify({ msg: 'upstream failed', key, error: String(e) }));
 			return json({ error: 'upstream unavailable' }, 502, cors);
 		}
 	}
 };
+
+/** Return a cached value if it is younger than ttl seconds, otherwise load and cache it. */
+async function cached(
+	/** @type {string} */ key,
+	/** @type {number} */ ttl,
+	/** @type {() => Promise<any>} */ load
+) {
+	const hit = cache.get(key);
+	if (hit && Date.now() - hit.at < ttl * 1000) return hit.data;
+	const data = await load();
+	cache.set(key, { at: Date.now(), data });
+	return data;
+}
 
 /** @param {unknown} data @param {number} status @param {Record<string, string>} cors @param {number} [ttl] */
 function json(data, status, cors, ttl) {
@@ -186,6 +200,37 @@ async function live(env, id) {
 					status: a.riderStatus ?? null
 				}))
 		}))
+	};
+}
+
+/**
+ * Every route running today with its stop IDs and live vehicles, in one call.
+ * Reuses the per-route caches, so it costs no more upstream traffic than polling each route.
+ * @param {any} env
+ */
+async function liveAll(env) {
+	const rs = await cached('routes', 300, () => routes(env));
+	const results = await Promise.allSettled(
+		rs.map(async (/** @type {{ id: string, name: string, color: string }} */ r) => {
+			const id = r.id.toLowerCase();
+			const [d, l] = await Promise.all([
+				cached(`route:${id}`, 300, () => routeDetail(env, id)),
+				cached(`live:${id}`, 10, () => live(env, id))
+			]);
+			return {
+				id,
+				name: r.name,
+				color: r.color,
+				headwaySec: d.headwaySec,
+				stopIds: d.stops.map((/** @type {{ id: string }} */ s) => s.id.toLowerCase()),
+				vehicles: l.vehicles
+			};
+		})
+	);
+	// one failing route shouldn't blank the whole screen
+	return {
+		at: new Date().toISOString(),
+		routes: results.flatMap((x) => (x.status === 'fulfilled' ? [x.value] : []))
 	};
 }
 
