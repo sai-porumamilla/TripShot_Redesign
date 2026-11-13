@@ -81,6 +81,9 @@ export function nearbyStops(stops, here, max = MAX_WALK_M) {
 /**
  * The next bus you can actually catch on each route, soonest first.
  * A bus counts only if it reaches the stop no earlier than your walk there.
+ * Pick the bus first (the one you can catch soonest), then the stop with the
+ * shortest walk where you can still catch that same bus: walking farther to
+ * board the same bus a few seconds earlier never helps.
  * @param {{ id: string, name: string, color: string, vehicles: { next: { stopId: string, eta: string }[] }[] }[]} routes
  * @param {{ id: string, name: string, loc: number[] }[]} stops
  * @param {number[]} here
@@ -91,15 +94,21 @@ export function departures(routes, stops, here, now) {
 	const out = [];
 	for (const route of routes) {
 		let best = null;
-		for (const v of route.vehicles)
-			for (const n of v.next) {
+		for (const v of route.vehicles) {
+			// every nearby stop where you can still catch this bus
+			const options = v.next.flatMap((n) => {
 				const s = near.get(n.stopId.toLowerCase());
-				if (!s) continue;
 				const minutes = (Date.parse(n.eta) - now) / 60000;
-				if (minutes < s.walk - 0.5) continue; // you can't get there in time
-				if (!best || minutes < best.minutes || (minutes === best.minutes && s.walk < best.walk))
-					best = { stop: s.stop, walk: s.walk, minutes };
-			}
+				return s && minutes >= s.walk - 0.5 ? [{ stop: s.stop, walk: s.walk, minutes }] : [];
+			});
+			if (!options.length) continue;
+			const soonest = Math.min(...options.map((o) => o.minutes));
+			if (best && soonest >= best.soonest) continue;
+			const pick = options.reduce((a, b) =>
+				b.walk < a.walk || (b.walk === a.walk && b.minutes < a.minutes) ? b : a
+			);
+			best = { ...pick, soonest };
+		}
 		if (best)
 			out.push({
 				route: { id: route.id, name: shortName(route.name), color: route.color },

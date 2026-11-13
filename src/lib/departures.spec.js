@@ -16,6 +16,43 @@ const now = Date.parse('2026-11-13T21:00:00Z');
 const at = (/** @type {number} */ min) => new Date(now + min * 60000).toISOString();
 
 describe('departures', () => {
+	it('boards the same bus at the nearest stop, not a farther stop it reaches seconds earlier', () => {
+		// regression: the bus hits Main Gate (6 min walk) at 8.6 min, then Transit Row (2 min walk) at 9 min
+		const routes = [
+			{
+				id: 'ne',
+				name: 'Northeast',
+				color: '#228124',
+				vehicles: [
+					{
+						next: [
+							{ stopId: 'B', eta: at(8.6) },
+							{ stopId: 'A', eta: at(9) }
+						]
+					}
+				]
+			}
+		];
+		const [d] = departures(routes, stops, LANGSAM.loc, now);
+		expect([d.stop.name, d.walk, d.minutes]).toEqual(['Transit Row', 2, 9]);
+	});
+
+	it('still prefers a sooner bus over a later one at a closer stop', () => {
+		const routes = [
+			{
+				id: 'n',
+				name: 'North',
+				color: '#F27107',
+				vehicles: [
+					{ next: [{ stopId: 'A', eta: at(20) }] },
+					{ next: [{ stopId: 'B', eta: at(7) }] }
+				]
+			}
+		];
+		const [d] = departures(routes, stops, LANGSAM.loc, now);
+		expect([d.stop.name, d.minutes]).toEqual(['University Main Gate', 7]);
+	});
+
 	it('picks the soonest catchable bus per route and sorts by time', () => {
 		const routes = [
 			{
