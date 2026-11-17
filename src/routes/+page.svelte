@@ -4,6 +4,8 @@
 	import { departures, nearbyStops, routeAbbrev, textOn } from '#lib/departures.js';
 	import { here, locate } from '#lib/here.svelte.js';
 	import RouteMap from '#lib/RouteMap.svelte';
+	import NextClass from '#lib/NextClass.svelte';
+	import { day } from '#lib/myDay.svelte.js';
 	import { applyServiceChange, scenarioFrom } from '#lib/serviceChanges.js';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
@@ -99,6 +101,10 @@
 	<button class="desktop">Find a trip</button>
 </form>
 
+<div class="phone">
+	<NextClass routes={data?.routes ?? null} stops={data?.stops ?? null} {now} />
+</div>
+
 <p class="notice"><Icon name="notice-clock" />{notice}</p>
 {#if change}
 	<p class="replay">{change.replayNote} <a href={resolve('/')}>Exit replay</a></p>
@@ -186,6 +192,8 @@
 				<p class="label">Where to board today</p>
 				<div class="change-map">{@render changeMap()}</div>
 			</div>
+		{:else if day.classes.length}
+			<NextClass routes={data?.routes ?? null} stops={data?.stops ?? null} {now} />
 		{:else}
 			<div class="card">
 				<p class="label">Not sure which route?</p>

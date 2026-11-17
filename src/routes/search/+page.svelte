@@ -1,5 +1,6 @@
 <script>
 	import Icon from '#lib/Icon.svelte';
+	import MyDay from '#lib/MyDay.svelte';
 	import RouteMap from '#lib/RouteMap.svelte';
 	import { getJSON } from '#lib/api.js';
 	import { textOn } from '#lib/departures.js';
@@ -110,20 +111,29 @@
 			// storage blocked: no saved trips
 		}
 	});
+	const pick = (/** @type {string} */ name) =>
+		choose(allPlaces.find((p) => p.name === name) ?? searchPlaces(allPlaces, name)[0]);
+	const today = $derived(
+		new Date(now).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
+	);
 </script>
 
 <svelte:head>
-	<title>{dest ? `To ${dest.name}` : 'Search'} · TripShot</title>
+	<title>{dest ? `To ${dest.name}` : 'My day'} · TripShot</title>
 </svelte:head>
 
 <div class="desktop heading">
-	<h1>{dest ? (home ? 'Find your way home' : 'Find your way there') : 'Where to?'}</h1>
+	<h1>{dest ? (home ? 'Find your way home' : 'Find your way there') : 'My day'}</h1>
 	<p>
-		{dest
-			? `Compare your options to ${dest.name}`
-			: 'Search a building, dorm, or stop. Compare the shuttle with walking.'}
+		{dest ? `Compare your options to ${dest.name}` : `${today} · from ${here.name}`}
 	</p>
 </div>
+{#if !dest}
+	<div class="phone myday-head">
+		<p>{today}</p>
+		<h1>My day</h1>
+	</div>
+{/if}
 
 <form
 	class="search"
@@ -142,7 +152,6 @@
 		<span class="desktop field-label">To</span>
 		<span class="input-row">
 			<span class="phone"><Icon name="search" /></span>
-			<!-- svelte-ignore a11y_autofocus -->
 			<input
 				type="search"
 				placeholder="Building, dorm, stop"
@@ -152,7 +161,6 @@
 				aria-autocomplete="list"
 				aria-controls="suggestions"
 				aria-expanded={suggestions.length > 0}
-				autofocus={!query}
 				bind:value={query}
 				oninput={() => (open = true)}
 				onfocus={() => (open = true)}
@@ -176,22 +184,7 @@
 <p class="phone from-line">From: {from}</p>
 
 {#if !dest}
-	{#if saved.length}
-		<h2 class="label saved-title">Saved trips</h2>
-		<ul class="saved">
-			{#each saved as t (t.to)}
-				<li>
-					<button
-						type="button"
-						onclick={() =>
-							choose(allPlaces.find((p) => p.name === t.to) ?? searchPlaces(allPlaces, t.to)[0])}
-						>★ {t.to}</button
-					>
-				</li>
-			{/each}
-		</ul>
-	{/if}
-	<p class="state">Type a building, dorm, or stop. We’ll compare the shuttle with walking.</p>
+	<MyDay routes={live?.routes ?? null} {stops} {now} places={allPlaces} {saved} {pick} />
 {:else if !plan}
 	<p class="state">
 		{failed ? 'Live shuttle data is unavailable right now.' : 'Checking live shuttles…'}
@@ -398,6 +391,18 @@
 		border-radius: 14px;
 		box-shadow: 0 6px 18px rgb(0 0 0 / 0.12);
 	}
+	.myday-head {
+		margin-bottom: 14px;
+	}
+	.myday-head p {
+		font-size: 14px;
+		color: var(--muted);
+	}
+	.myday-head h1 {
+		margin-top: 4px;
+		font-size: 24px;
+		line-height: 29px;
+	}
 	.suggestions button {
 		display: flex;
 		justify-content: space-between;
@@ -556,23 +561,6 @@
 	}
 	.option .time {
 		font-size: 16px;
-	}
-	.saved-title {
-		margin-top: 18px;
-	}
-	.saved {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-		margin-top: 8px;
-	}
-	.saved button {
-		padding: 8px 14px;
-		border: 1px solid var(--line);
-		border-radius: 20px;
-		background: var(--surface);
-		font-weight: 700;
-		cursor: pointer;
 	}
 	.state {
 		margin-top: 16px;

@@ -26,8 +26,10 @@ const AT_STOP_M = 40;
  * @param {number[]} from
  * @param {number[]} to
  * @param {number} now epoch ms
+ * @param {number} [arriveBy] epoch ms: only trips that get there by then, and the
+ *   recommendation becomes the one you can leave latest for (not the one arriving first)
  */
-export function planTrips(routes, stops, from, to, now) {
+export function planTrips(routes, stops, from, to, now, arriveBy) {
 	const key = (/** @type {string} */ id) => id.toLowerCase();
 	const boards = new Map(nearbyStops(stops, from).map((s) => [key(s.stop.id), s]));
 	const alights = new Map(
@@ -48,6 +50,8 @@ export function planTrips(routes, stops, from, to, now) {
 				for (const m of v.next.slice(i + 1)) {
 					const a = alights.get(key(m.stopId));
 					if (!a || key(a.stop.id) === key(b.stop.id)) continue;
+					const arriveAt = Date.parse(m.eta) + a.walk * 60000;
+					if (arriveBy !== undefined && arriveAt > arriveBy) continue;
 					options.push({
 						route: { id: route.id, name: shortName(route.name), color: route.color },
 						board: b.stop,
@@ -55,35 +59,39 @@ export function planTrips(routes, stops, from, to, now) {
 						walkTo: b.walk,
 						walkFrom: a.walk,
 						departAt,
-						arriveAt: Date.parse(m.eta) + a.walk * 60000
+						arriveAt
 					});
 				}
 			});
-		const best = easiest(options);
+		const best = easiest(options, arriveBy !== undefined);
 		if (best) shuttles.push(best);
 	}
 	shuttles.sort((a, b) => a.arriveAt - b.arriveAt);
-	const recommended = easiest(shuttles);
+	const recommended = easiest(shuttles, arriveBy !== undefined);
 	if (recommended)
 		(shuttles.splice(shuttles.indexOf(recommended), 1), shuttles.unshift(recommended));
 	const walkMin = walkMinutes(distanceM(from, to));
 	return { shuttles, walk: { minutes: walkMin, arriveAt: now + walkMin * 60000 } };
 }
 
+/** When you'd have to leave for a trip: walk to the stop, plus a minute to spare. */
+export const leaveFor = (/** @type {Trip} */ t) => t.departAt - (t.walkTo + 1) * 60000;
+
 /**
- * Among trips arriving within WALK_MARGIN_MIN of the fastest, the one with the least walking
- * (then the earliest). Saving a minute or two isn't worth a long walk.
+ * Among trips within WALK_MARGIN_MIN of the best, the one with the least walking. Saving a
+ * minute or two isn't worth a long walk. "Best" is the earliest arrival, or with `latest`
+ * (arrive-by planning) the latest you can leave.
  * @param {Trip[]} trips
+ * @param {boolean} [latest]
  */
-function easiest(trips) {
+function easiest(trips, latest = false) {
 	if (!trips.length) return null;
-	const fastest = Math.min(...trips.map((t) => t.arriveAt));
+	const cost = (/** @type {Trip} */ t) => (latest ? -leaveFor(t) : t.arriveAt);
+	const best = Math.min(...trips.map(cost));
 	const walk = (/** @type {Trip} */ t) => t.walkTo + t.walkFrom;
 	return trips
-		.filter((t) => t.arriveAt <= fastest + WALK_MARGIN_MIN * 60000)
-		.reduce((a, b) =>
-			walk(b) < walk(a) || (walk(b) === walk(a) && b.arriveAt < a.arriveAt) ? b : a
-		);
+		.filter((t) => cost(t) <= best + WALK_MARGIN_MIN * 60000)
+		.reduce((a, b) => (walk(b) < walk(a) || (walk(b) === walk(a) && cost(b) < cost(a)) ? b : a));
 }
 
 /**
