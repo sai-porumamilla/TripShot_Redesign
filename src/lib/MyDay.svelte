@@ -135,7 +135,7 @@
 
 {#snippet form()}
 	<form
-		class="sheet"
+		class="sheet sheet-in"
 		aria-labelledby="add-title"
 		oninput={() => (error = '')}
 		onsubmit={(e) => {
@@ -269,7 +269,8 @@
 
 	<aside>
 		{#if adding}
-			<button class="backdrop phone" aria-label="Close" onclick={() => (adding = false)}></button>
+			<button class="backdrop backdrop-in phone" aria-label="Close" onclick={() => (adding = false)}
+			></button>
 			{@render form()}
 		{:else}
 			<div class="card">
@@ -413,8 +414,10 @@
 		line-height: 1;
 		cursor: pointer;
 	}
-	.remove:hover {
-		background: var(--chip);
+	@media (hover: hover) and (pointer: fine) {
+		.remove:hover {
+			background: var(--chip);
+		}
 	}
 	.link {
 		justify-self: start;
@@ -518,7 +521,7 @@
 		gap: 14px;
 		max-height: 90vh;
 		overflow-y: auto;
-		padding: 20px 20px 28px;
+		padding: 20px 20px calc(28px + var(--safe-bottom));
 		border-radius: 20px 20px 0 0;
 		background: var(--surface);
 	}
@@ -573,9 +576,13 @@
 		text-align: left;
 		cursor: pointer;
 	}
-	.hits button:hover,
 	.hits button:focus-visible {
 		background: var(--nav-active);
+	}
+	@media (hover: hover) and (pointer: fine) {
+		.hits button:hover {
+			background: var(--nav-active);
+		}
 	}
 	.hits span {
 		font-weight: 400;

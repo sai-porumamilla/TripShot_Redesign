@@ -86,7 +86,7 @@
 
 		<main>
 			{#if reminder}
-				<p class="reminder" role="alert">
+				<p class="reminder appear" role="alert">
 					<span><strong>{reminder.title}.</strong> {reminder.body}</span>
 					<button onclick={() => (reminder = null)}>OK</button>
 				</p>
@@ -113,7 +113,7 @@
 		display: none;
 	}
 	main {
-		padding: 28px 18px 72px;
+		padding: 28px 18px calc(72px + var(--safe-bottom));
 		max-width: 560px;
 		margin: 0 auto;
 	}
@@ -145,7 +145,8 @@
 		inset: auto 0 0 0;
 		display: grid;
 		grid-template-columns: repeat(4, 1fr);
-		height: 48px;
+		height: calc(48px + var(--safe-bottom));
+		padding-bottom: var(--safe-bottom);
 		background: var(--surface);
 		border-top: 1px solid var(--line);
 		font-size: 12px;

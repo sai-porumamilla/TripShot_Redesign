@@ -336,7 +336,7 @@
 		{/if}
 
 		{#if fired && !gone}
-			<section class="leave" role="alert" aria-labelledby="leave-title">
+			<section class="leave appear" role="alert" aria-labelledby="leave-title">
 				<p class="leave-label">TripShot · now</p>
 				<h2 id="leave-title">Leave now for {your?.name}</h2>
 				<p class="leave-text">{name} is {minutes} min away. Your walk is {walk} min.</p>
@@ -354,7 +354,7 @@
 
 		<div class="grid">
 			{#if late}
-				<div class="delay">
+				<div class="delay appear">
 					<div class="changed">
 						<p class="label desktop">What changed</p>
 						<p class="changed-title">
@@ -665,7 +665,7 @@
 		display: block;
 		height: 100%;
 		background: #fff;
-		transition: width 0.6s ease;
+		transition: width 300ms var(--ease-in-out);
 	}
 	.leave .ends {
 		display: flex;
@@ -883,7 +883,7 @@
 	/* phone: the alert card becomes the sticky action bar above the bottom nav */
 	.alert {
 		position: sticky;
-		bottom: 48px;
+		bottom: calc(48px + var(--safe-bottom));
 		z-index: 600;
 		padding: 16px 17px 12px;
 		background: var(--surface);

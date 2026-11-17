@@ -331,8 +331,10 @@
 		border: 1px solid var(--line);
 		border-radius: 14px;
 	}
-	.dep:hover {
-		border-color: var(--muted);
+	@media (hover: hover) and (pointer: fine) {
+		.dep:hover {
+			border-color: var(--muted);
+		}
 	}
 	.badge {
 		display: grid;

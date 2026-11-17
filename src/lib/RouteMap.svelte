@@ -56,6 +56,9 @@
 	let routeLayer;
 	/** @type {import('leaflet').Marker | null} */
 	let busMarker = null;
+	// the OS "reduce motion" setting: the map jumps instead of animating
+	const still =
+		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 	let fitted = false;
 
 	onMount(() => {
@@ -65,6 +68,9 @@
 			L = mod.default ?? mod;
 			map = L.map(el, {
 				zoomControl: false,
+				zoomAnimation: !still,
+				fadeAnimation: !still,
+				markerZoomAnimation: !still,
 				zoomSnap: 0.25,
 				scrollWheelZoom: false,
 				attributionControl: true
@@ -254,7 +260,7 @@
 		if (!fitted && (trip.length > 1 || closure || change)) (recenter(), (fitted = true));
 	});
 
-	// Bus: glide to each new position instead of jumping
+	// Bus: glide to each new position instead of jumping (jumps with reduced motion)
 	$effect(() => {
 		if (!L || !map) return;
 		if (!bus?.loc) return void (busMarker?.remove(), (busMarker = null));
@@ -278,7 +284,7 @@
 			t0 = performance.now();
 		let raf = 0;
 		const step = (/** @type {number} */ t) => {
-			const k = Math.min(1, (t - t0) / 1500);
+			const k = still ? 1 : Math.min(1, (t - t0) / 1500);
 			m.setLatLng([from.lat + (to[0] - from.lat) * k, from.lng + (to[1] - from.lng) * k]);
 			if (k < 1) raf = requestAnimationFrame(step);
 		};
