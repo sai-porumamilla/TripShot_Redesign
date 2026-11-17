@@ -63,7 +63,11 @@
 			: null
 	);
 	const until = $derived(Number(q?.until) || Infinity);
-	const status = $derived(live && detail ? rideStatus(prog, now, until) : null);
+	let rode = $state(false); // seen past the boarding stop (see rideStatus)
+	$effect(() => {
+		if (prog?.rows[0].passed) rode = true;
+	});
+	const status = $derived(live && detail ? rideStatus(prog, now, until, rode) : null);
 	const nextRow = $derived(prog?.rows.find((r, i) => i > 0 && !r.passed));
 	const destEta = $derived(prog?.rows.at(-1)?.eta);
 	const after = $derived(Number(q?.after) || 0);

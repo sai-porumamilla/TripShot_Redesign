@@ -25,7 +25,8 @@
 	 *   yourLabel?: string,
 	 *   destLabel?: string | null,
 	 *   goal?: number[] | null,
-	 *   closure?: { closed: { name: string, loc: number[] }, road: number[][], roadLabel: string } | null
+	 *   closure?: { closed: { name: string, loc: number[] }, road: number[][], roadLabel: string } | null,
+	 *   change?: { color: string, trip: number[][], at: { name: string, loc: number[] }, label: string } | null
 	 * }}
 	 */
 	let {
@@ -41,7 +42,8 @@
 		yourLabel = 'Your stop',
 		destLabel = null,
 		goal = null,
-		closure = null
+		closure = null,
+		change = null // a second shuttle: its line, and where you change to it
 	} = $props();
 
 	/** @type {HTMLDivElement} */
@@ -99,6 +101,28 @@
 			Lf.polyline(path.map(ll), { color, weight: 4, opacity: 0.3, interactive: false }).addTo(
 				routeLayer
 			);
+		if (change && change.trip.length > 1)
+			Lf.polyline(change.trip.map(ll), {
+				color: change.color,
+				weight: 6,
+				opacity: 1,
+				interactive: false
+			}).addTo(routeLayer);
+		if (change)
+			Lf.circleMarker(ll(change.at.loc), {
+				radius: 7,
+				color: change.color,
+				weight: 4,
+				fillColor: '#fff',
+				fillOpacity: 1
+			})
+				.bindTooltip(change.label, {
+					permanent: true,
+					direction: 'left',
+					offset: [-10, 0],
+					className: 'map-label'
+				})
+				.addTo(routeLayer);
 		if (trip.length > 1)
 			Lf.polyline(trip.map(ll), { color, weight: 6, opacity: 1, interactive: false }).addTo(
 				routeLayer
@@ -227,7 +251,7 @@
 				keyboard: false,
 				zIndexOffset: 400
 			}).addTo(routeLayer);
-		if (!fitted && (trip.length > 1 || closure)) (recenter(), (fitted = true));
+		if (!fitted && (trip.length > 1 || closure || change)) (recenter(), (fitted = true));
 	});
 
 	// Bus: glide to each new position instead of jumping
@@ -295,6 +319,7 @@
 		const extra = closure ? [closure.closed.loc, ...closure.road, ...stops.map((s) => s.loc)] : [];
 		const pts = [
 			...trip,
+			...(change?.trip ?? []),
 			...(here ? [here] : []),
 			...(bus?.loc ? [bus.loc] : []),
 			...(goal ? [goal] : []),

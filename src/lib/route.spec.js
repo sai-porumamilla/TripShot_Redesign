@@ -121,5 +121,7 @@ describe('route logic', () => {
 		expect(rideStatus(done, now, until)).toBe('arrived');
 		expect(rideStatus(null, now, until)).toBe('lost');
 		expect(rideStatus(riding, until + 1, until)).toBe('ended');
+		// next loop: the boarding stop is ahead again after the rider was seen riding
+		expect(rideStatus(waiting, now, until, true)).toBe('arrived');
 	});
 });

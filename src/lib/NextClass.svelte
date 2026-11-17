@@ -102,12 +102,18 @@
 						class="chip"
 						style:background={plan.trip.route.color}
 						style:color={textOn(plan.trip.route.color)}>{plan.trip.route.name}</span
-					>
+					>{#if plan.trip.change}<span aria-hidden="true">→</span><span
+							class="chip"
+							style:background={plan.trip.change.route.color}
+							style:color={textOn(plan.trip.change.route.color)}>{plan.trip.change.route.name}</span
+						>{/if}
 				</p>
 				<p class="line">
-					Board at {plan.trip.board.name} at {clock(plan.trip.departAt)}. Arrive {clock(
-						plan.trip.arriveAt
-					)}, {Math.round((next.at - plan.trip.arriveAt) / 60000)} min before class.
+					Board at {plan.trip.board.name} at {clock(plan.trip.departAt)}.{plan.trip.change
+						? ` Change to ${plan.trip.change.route.name} at ${plan.trip.change.at.name}.`
+						: ''} Arrive {clock(plan.trip.arriveAt)}, {Math.round(
+						(next.at - plan.trip.arriveAt) / 60000
+					)} min before class.
 				</p>
 			{:else if plan.kind === 'walk'}
 				<p class="chips"><span class="chip">Walk {plan.walk} min</span></p>
@@ -126,11 +132,14 @@
 				</button>
 			{/if}
 			{#if plan.kind === 'shuttle'}
+				{@const t = plan.trip}
 				<a
 					class="more"
-					href="{resolve('/route')}/?id={plan.trip.route.id}&stop={plan.trip.board.id}&to={plan.trip
-						.alight.id}&place={encodeURIComponent(next.cls.place)}&after={plan.trip.walkFrom}"
-					>See the live route</a
+					href="{resolve('/route')}/?id={t.route.id}&stop={t.board.id}&to={(
+						t.change?.at ?? t.alight
+					).id}&place={encodeURIComponent(next.cls.place)}&after={t.walkFrom}{t.change
+						? `&then=${t.change.route.id}&thenStop=${t.change.board.id}&thenTo=${t.alight.id}`
+						: ''}">See the live route</a
 				>
 			{/if}
 		{/if}

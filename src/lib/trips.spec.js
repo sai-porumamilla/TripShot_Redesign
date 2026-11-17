@@ -155,4 +155,86 @@ describe('walkIsBest', () => {
 		expect(walkIsBest(plan(10, [16]))).toBe(true); // walk saves 6 min
 		expect(walkIsBest(plan(10, []))).toBe(true); // no shuttle at all
 	});
+
+	it('links two shuttles: Northeast to Transit Row, then Southwest (University Edge → Ravine St.)', () => {
+		const edge = [39.13972, -84.51179]; // University Edge, ~80 m from Jefferson & Ruther
+		const jr = { id: 'JR', name: 'Jefferson & Ruther', loc: [39.13988, -84.51269] };
+		const cg = { id: 'CG', name: 'Clifton & Good Sam', loc: [39.1372, -84.5196] };
+		const rs = { id: 'RS', name: 'Ravine & Straight', loc: [39.12984, -84.52537] };
+		const all = [jr, cg, transitRow, rs];
+		const ne = (/** @type {number} */ off) =>
+			route('Northeast', [
+				{ stopId: 'JR', eta: at(3) },
+				{ stopId: 'CG', eta: at(10) },
+				{ stopId: 'TR', eta: at(13 + off) }
+			]);
+		const sw = {
+			...route('Southwest', [
+				{ stopId: 'TR', eta: at(17) },
+				{ stopId: 'RS', eta: at(21) }
+			]),
+			color: '#00005C'
+		};
+		const { shuttles } = planTrips([ne(0), sw], all, edge, rs.loc, now);
+		const best = shuttles[0];
+		// same arrival as walking ~9 min to Transit Row for that Southwest, but far less walking
+		expect([
+			best.route.name,
+			best.board.name,
+			best.change?.route.name,
+			best.change?.at.name
+		]).toEqual(['Northeast', 'Jefferson & Ruther', 'Southwest', 'Transit Row']);
+		expect([best.change?.arriveAt, best.change?.departAt, best.arriveAt]).toEqual([
+			atMs(13),
+			atMs(17),
+			atMs(21)
+		]);
+		// the direct Southwest trip (long walk to Transit Row) is still offered
+		expect(shuttles.some((t) => !t.change && t.route.name === 'Southwest')).toBe(true);
+		// a missed connection (Northeast gets in after Southwest leaves) isn't offered
+		expect(planTrips([ne(5), sw], all, edge, rs.loc, now).shuttles.some((t) => t.change)).toBe(
+			false
+		);
+	});
+
+	it('prefers one shuttle when a change saves little, and skips long waits for the second', () => {
+		const rs = { id: 'RS', name: 'Ravine & Straight', loc: [39.12984, -84.52537] };
+		const far = { id: 'FR', name: 'Far stop', loc: [39.1395, -84.5125] };
+		// from Transit Row: Southwest is right here, so changing from another route isn't worth it
+		const direct = route('Southwest', [
+			{ stopId: 'TR', eta: at(6) },
+			{ stopId: 'RS', eta: at(10) }
+		]);
+		const other = {
+			...route('North', [
+				{ stopId: 'TR', eta: at(2) },
+				{ stopId: 'FR', eta: at(4) }
+			])
+		};
+		const swFromFar = route('Southwest', [
+			{ stopId: 'FR', eta: at(5) },
+			{ stopId: 'RS', eta: at(9) }
+		]);
+		swFromFar.id = 'southwest-2';
+		const plan = planTrips(
+			[direct, other, swFromFar],
+			[transitRow, far, rs],
+			transitRow.loc,
+			rs.loc,
+			now
+		);
+		expect(plan.shuttles[0].change).toBeUndefined(); // 1 min later, no change: one shuttle wins
+		expect(plan.shuttles.some((t) => t.change)).toBe(true); // the change is still listed
+		// a 25-minute wait for the second shuttle isn't suggested
+		const late = route('Southwest', [
+			{ stopId: 'FR', eta: at(29) },
+			{ stopId: 'RS', eta: at(33) }
+		]);
+		late.id = 'southwest-3';
+		expect(
+			planTrips([other, late], [transitRow, far, rs], transitRow.loc, rs.loc, now).shuttles.some(
+				(t) => t.change
+			)
+		).toBe(false);
+	});
 });
