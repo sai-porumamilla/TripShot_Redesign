@@ -52,6 +52,7 @@
 		stops.find((s) => s.id.toLowerCase() === id.toLowerCase());
 
 	const bus = $derived(vehicles.find((v) => v.name === q?.bus));
+	let rode = $state(false); // seen past the boarding stop (see tripProgress)
 	const board = $derived(q ? stopOf(q.stop) : undefined);
 	const dest = $derived(q ? stopOf(q.to) : undefined);
 	const prog = $derived(
@@ -60,17 +61,20 @@
 					bus.next,
 					stops.map((s) => s.id),
 					board.id,
-					dest.id
+					dest.id,
+					rode
 				)
 			: null
 	);
 	const until = $derived(Number(q?.until) || Infinity);
-	let rode = $state(false); // seen past the boarding stop (see rideStatus)
 	$effect(() => {
 		if (prog?.rows[0].passed && !rode && q) ((rode = true), remember(q, destEta));
 	});
-	const status = $derived(live && detail ? rideStatus(prog, now, until, rode) : null);
-	const nextRow = $derived(prog?.rows.find((r, i) => i > 0 && !r.passed));
+	const status = $derived(live && detail ? rideStatus(prog, now, until) : null);
+	// boarding: the bus's next stop is the boarding stop itself
+	const nextRow = $derived(
+		status === 'boarding' ? prog?.rows[0] : prog?.rows.find((r, i) => i > 0 && !r.passed)
+	);
 	const destEta = $derived(prog?.rows.at(-1)?.eta);
 	const after = $derived(Number(q?.after) || 0);
 	const placeName = $derived(q?.place || dest?.name || '');
@@ -110,10 +114,13 @@
 	);
 	const seenAgo = $derived(bus ? Math.round((now - Date.parse(bus.seen)) / 1000) : null);
 	const trip = $derived.by(() => {
-		if (!detail?.path.length || !bus?.loc || !dest || status !== 'riding') return [];
+		if (!detail?.path.length || !board || !dest) return [];
+		// riding: what's left of the ride; otherwise the whole ride (the map fits to this line,
+		// so without it the map would have no view at all)
+		const from = status === 'riding' && bus?.loc ? bus.loc : board.loc;
 		return pathBetween(
 			detail.path,
-			nearestIndex(detail.path, bus.loc),
+			nearestIndex(detail.path, from),
 			nearestIndex(detail.path, dest.loc)
 		);
 	});
@@ -167,7 +174,7 @@
 								{trip}
 								{stops}
 								yourStopId={board.id}
-								yourLabel="Boarded here"
+								yourLabel={status === 'boarding' ? 'Boards here' : 'Boarded here'}
 								destId={dest.id}
 								destLabel="Gets off · {dest.name}"
 								goal={goal ?? null}

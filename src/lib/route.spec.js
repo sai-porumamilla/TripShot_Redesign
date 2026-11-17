@@ -122,6 +122,18 @@ describe('route logic', () => {
 		expect(rideStatus(null, now, until)).toBe('lost');
 		expect(rideStatus(riding, until + 1, until)).toBe('ended');
 		// next loop: the boarding stop is ahead again after the rider was seen riding
-		expect(rideStatus(waiting, now, until, true)).toBe('arrived');
+		const nextLoop = tripProgress(
+			[
+				{ stopId: 'tr', eta: at(20) },
+				{ stopId: 'ada', eta: at(26) }
+			],
+			loop,
+			'tr',
+			'ada',
+			true
+		);
+		expect(nextLoop?.arrived).toBe(true);
+		expect(nextLoop?.rows.every((r) => r.passed && !r.eta)).toBe(true);
+		expect(rideStatus(nextLoop, now, until)).toBe('arrived');
 	});
 });
