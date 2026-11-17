@@ -10,6 +10,7 @@
 	import busInk from '#lib/assets/icons/bus-ink.svg';
 	import alertBell from '#lib/assets/icons/alert-bell.svg';
 	import { resolve } from '$app/paths';
+	import { afterNavigate } from '$app/navigation';
 	import { onMount } from 'svelte';
 
 	/** @typedef {{ id: string, name: string, loc: number[] }} Stop */
@@ -141,6 +142,16 @@
 		alertOn = !alertOn;
 		fired = false;
 	}
+
+	// Back returns to wherever you came from in the app (Now, My trips, Routes);
+	// opened from a shared link, it falls through to the href (Running now).
+	let inApp = false;
+	afterNavigate(({ from }) => (inApp = !!from));
+	const back = (/** @type {MouseEvent} */ e) => {
+		if (!inApp) return;
+		e.preventDefault();
+		history.back();
+	};
 </script>
 
 <svelte:head>
@@ -161,7 +172,7 @@
 		</div>
 
 		<header class="arrival" class:dark-text={onColor === '#000000'}>
-			<a class="back" href={resolve('/')} aria-label="Back to running now"
+			<a class="back" href={resolve('/')} onclick={back} aria-label="Back"
 				><img src={backWhite} alt="" width="16" height="28" /></a
 			>
 			<div class="arrival-main">
