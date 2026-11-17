@@ -89,10 +89,11 @@ We grouped the problems we found into four areas.
 
 ### What we found in TripShot's data
 
-Building on TripShot's live data confirmed two of these problems in a concrete way:
+Building on TripShot's live data confirmed three of these problems in a concrete way:
 
 - **Status labels are unreliable.** TripShot marks nearly every bus as "Delayed", so its own delay flag tells a rider nothing. Our app ignores it and works out delays from how much the arrival time actually slips (see [Delays](#delays-and-whats-still-faster)).
 - **Closures are free text only.** On Oct 7, an MLK Drive closure moved boarding from Transit Row to Jefferson Avenue for up to an hour, sometime between 9:30 and 11:30 AM. TripShot only published it as a paragraph in the alerts list. Nothing on the map or the arrival times changed, so a rider who missed the alert went to a closed stop.
+- **Arrival times only cover one lap.** TripShot lists each bus's arrival times for its current loop only, and runs each day route as scheduled shifts (7 AM–2 PM and 2–10 PM). When a bus is about to pass your stop before you can walk there, the data says nothing about when it comes back. An early version of our app fell into this: it sent a rider at University Edge on a 9-minute walk to chase the bus to a farther stop, when the right answer was to wait about 14 minutes at the stop 80 m away.
 
 > **To fill in:** feedback on the design plans. The brief asks how we checked, before building, that the redesign would address these problems: who looked at the Figma frames, how, and what changed as a result.
 
@@ -107,6 +108,7 @@ Each problem became a design goal, and each goal became a screen.
 | Some trips need two shuttles, and riders have to work that out alone | **Plan the change for them**, and guide it on the bus.                                  | [Two shuttles](#two-shuttle-trips)                                |
 | Not clear what's running right now                                   | **Open on what's running near you now.** Hide routes that aren't running.               | [Running now](#running-now)                                       |
 | Route and arrival time are two steps apart                           | **One live route screen** with the arrival time, the map and your stop together.        | [Live route](#live-route)                                         |
+| The bus is about to pass your stop before you can get there          | **Wait at your nearest stop for its next pass**, instead of chasing the bus.            | [Running now](#running-now), [Live route](#live-route)            |
 | Bad arrival times leave you waiting                                  | **Tell you when to leave**, counting your walk, and re-plan when the bus slips.         | [Leave now](#leave-now), [Delays](#delays-and-whats-still-faster) |
 | Closures are easy to miss                                            | **Apply closures to the trip itself**: the temporary stop, walk and times all change.   | [Service changes](#service-changes)                               |
 | NightRide looks like everything else                                 | **A night mode** that switches on during NightRide hours.                               | [NightRide](#nightride)                                           |
@@ -137,6 +139,15 @@ Text on a route color is black or white, whichever reads better on that color.
 
 **Maps** use OpenStreetMap, muted to gray, so the route lines, the bus and your stop stand out.
 
+**Motion and touch.** Little motion, on purpose, following Emil Kowalski's design-engineering guidelines:
+
+- Buttons and cards shrink slightly when pressed. The tab bar doesn't animate, because it's used too often.
+- Things that appear while you're watching (leave now, a delay, "your stop is next") settle in instead of popping.
+- Bottom sheets slide up from the edge.
+- Countdown numbers don't animate, because you're reading them.
+- With the phone's "reduce motion" setting on, fades stay and slides go, and the map stops animating.
+- Digits are all the same width, so live countdowns don't jitter.
+
 ## The interface
 
 Screenshots are of the live app. Each section shows the phone layout; the desktop version is linked below it. All screens also come in NightRide mode, in [`docs/screenshots/night/`](docs/screenshots/night/).
@@ -149,6 +160,7 @@ Screenshots are of the live app. Each section shows the phone layout; the deskto
 - A notice says which service is running ("NightRide North and Southwest are running until 2 AM").
 - The search box ("Where to? Building, dorm, stop") is the first thing on the page.
 - Tap a departure to open its live route.
+- **It doesn't send you chasing a bus.** If a bus will pass your nearest stop before you can walk there, the app counts its next pass. That's its next lap, or the next scheduled ride after a shift change. A farther stop only wins if it gets you on a bus 5 or more minutes sooner. Estimated times show in gray as "Next lap" or "Scheduled" instead of "• Live" (see [Live route](#live-route) for an example).
 
 <img src="docs/screenshots/day/phone-01-running-now.png" width="260" alt="Running now">
 
@@ -197,6 +209,19 @@ Desktop: [search](docs/screenshots/day/desktop-14-two-shuttles.png) · [change h
 <img src="docs/screenshots/day/phone-03-live-route.png" width="260" alt="Live route">
 
 [Desktop](docs/screenshots/day/desktop-03-live-route.png)
+
+**When the bus is too close to catch.**
+
+- The page checks each bus once, when it first sees it, using the same rule as Running now.
+- **Too close to catch:** the page shows **"Next one in ~14 min"** with a "Next lap" or "Scheduled" pill, and explains why. After the last bus of the day it says **"No more Northeast today"**.
+- **Catchable when first seen:** the bus stays followed as it gets close, so you don't lose it while walking to the stop.
+- **When a bus passes and comes back round,** that's a new pass, not a 13-minute delay.
+
+These two screenshots use a simulated bus. The rider is at University Edge, 2 minutes from Jefferson & Ruther, and the only Northeast bus is about to pass it:
+
+| Running now                                                                                                            | Live route                                                                                                     |
+| ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| <img src="docs/screenshots/day/phone-16-next-lap-now.png" width="260" alt="Running now: Northeast, ~14 min, next lap"> | <img src="docs/screenshots/day/phone-17-next-lap-route.png" width="260" alt="Live route: next one in ~14 min"> |
 
 ### Leave now
 
@@ -319,6 +344,13 @@ UC's TripShot API needs a login and doesn't allow calls from other websites, so 
 
 It only passes on what the app needs. The upstream data includes driver, shift and device IDs, and the Worker never returns them. It also caches responses (live buses for 10 seconds) so the app doesn't overload TripShot.
 
+Besides live positions and arrival times, it passes on two pieces of TripShot's schedule, as times and stop IDs only:
+
+- when each bus's scheduled ride ends
+- the rides scheduled later today
+
+The app uses them to work out when a bus comes back after one you can't catch.
+
 ### Code structure
 
 ```
@@ -333,7 +365,7 @@ src/
     +layout.svelte     The shell: bottom tabs on phones, top bar and sidebar on desktop
   lib/
     trips.js           Trip planning: walk vs. one or two shuttles, the 5-minute rule
-    departures.js      Distances, walk times, which buses you can still catch
+    departures.js      Distances, walk times, which buses you can still catch, when the next one comes
     route.js           Which bus to follow, trip progress, a shared ride's status
     schedule.js        Class times in campus time, arrive-by planning, .ics import
     serviceChanges.js  Applies a closure or delay to live data
@@ -358,16 +390,21 @@ We used **Claude Code** (Anthropic's coding assistant) throughout the build:
 - **Code:** it wrote most of the SvelteKit app and the Cloudflare Worker from our Figma designs and descriptions, one feature per branch and pull request.
 - **Figma:** it drafted the newer frames (My day, Share my ride, two-shuttle trips) in our Figma file through Figma's plugin API. We reviewed them before any code was written.
 - **Testing:** besides unit tests, it drove the real app in a headless browser at phone and desktop sizes, and took the screenshots in this README.
+- **Design references:** for motion and mobile details, we had it follow [Emil Kowalski's design-engineering skills](https://github.com/emilkowalski/skills) and the accessible-animation skill from [iart-ai's web animation skills](https://github.com/iart-ai/web-animation-skills). It also used them to rule out motion that wouldn't help.
 
 **Where it helped:** it moved fast on well-defined screens and kept the phone and desktop layouts consistent with each other and with the Figma frames.
 
-**Where it fell short:** unit tests passing didn't mean a feature worked. Several bugs only showed up when it ran the real app against real or simulated buses. For example, a loop route's bus coming back round made a finished trip look unfinished. Late at night no buses were running, so testing needed a simulated live feed. The design judgment stayed with us: which problems to solve, the 5-minute recommendation rule, and the color rules.
+**Where it fell short:** unit tests passing didn't mean a feature worked. Several bugs only showed up when it ran the real app against real or simulated buses. For example, a loop route's bus coming back round made a finished trip look unfinished, and Uptown Express crashed the live route page because it passes Transit Row more than once a lap. Late at night no buses were running, so testing needed a simulated live feed. The design judgment stayed with us: which problems to solve, the 5-minute recommendation rule, and the color rules.
 
 ## Future work
 
 - **Real service alerts.** TripShot's alerts aren't available to our proxy yet, so closures are replayed rather than read live. Next step: parse TripShot's alert feed into the same closure format the app already uses.
 - **Reminders with the page closed.** Leave-now and stop alerts need the page to stay open. A service worker with push notifications would remove that limit.
-- **Real-world checks for two-shuttle trips.** They were tested on a simulated feed because the buses needed weren't running during testing. We still need to confirm on real buses that a Northeast bus lists Transit Row at the end of its loop, which the change relies on.
+- **Real-world checks.** Some behavior was tested on a simulated live feed, because the buses it needs weren't running at the time. We still need to see these on real buses:
+  - two-shuttle trips, including whether a Northeast bus lists Transit Row at the end of its loop, which the change relies on
+  - the 2 PM shift change
+  - the last bus at 10 PM
+- **Follow your location as you walk.** The live route page reads your location once, so your walk time doesn't shrink as you get closer. Watching the location would make "too close to catch" and the leave-now alert more accurate.
 - **NightRide contrast.** Southwest's navy route color is faint on the dark night background. A lighter outline at night would fix it.
 - **Usability testing of the prototype** with students, repeating the two tasks above to compare against TripShot.
 - **Trips with more than one change**, if real trips ever need them.
