@@ -70,14 +70,17 @@ export function progressRows(next, stopId, toId) {
  * Progress of a ride on one bus from `boardId` to `destId`, for the on-board screen.
  * `stopIds` is the route's loop order; a stop counts as passed once it's no longer among
  * the bus's upcoming stops (up to its first arrival at the destination).
+ * `rode`: the bus was already seen past the boarding stop. On a loop it comes round again,
+ * so seeing the boarding stop ahead after that means it has passed the destination: arrived.
  * @param {NextStop[]} next
  * @param {string[]} stopIds
  * @param {string} boardId
  * @param {string} destId
+ * @param {boolean} [rode]
  * @returns {{ rows: { stopId: string, eta: string | null, passed: boolean }[],
  *   left: number, total: number, arrived: boolean, alertAt: string | null } | null}
  */
-export function tripProgress(next, stopIds, boardId, destId) {
+export function tripProgress(next, stopIds, boardId, destId, rode = false) {
 	const lc = (/** @type {string} */ s) => s.toLowerCase();
 	const ids = stopIds.map(lc);
 	const b = ids.indexOf(lc(boardId));
@@ -85,7 +88,8 @@ export function tripProgress(next, stopIds, boardId, destId) {
 	if (b < 0 || d < 0 || b === d) return null;
 	const count = (d - b + ids.length) % ids.length; // stops from board to dest, wrapping the loop
 	const upTo = next.findIndex((n) => lc(n.stopId) === lc(destId));
-	const ahead = new Map(next.slice(0, upTo + 1).map((n) => [lc(n.stopId), n.eta]));
+	let ahead = new Map(next.slice(0, upTo + 1).map((n) => [lc(n.stopId), n.eta]));
+	if (rode && ahead.has(lc(boardId))) ahead = new Map(); // the next loop: yours is passed
 	const rows = Array.from({ length: count + 1 }, (_, i) => {
 		const id = stopIds[(b + i) % ids.length];
 		return { stopId: id, eta: ahead.get(lc(id)) ?? null, passed: !ahead.has(lc(id)) };
@@ -94,7 +98,7 @@ export function tripProgress(next, stopIds, boardId, destId) {
 		rows,
 		left: rows.slice(1).filter((r) => !r.passed).length,
 		total: count,
-		arrived: upTo < 0,
+		arrived: !ahead.size,
 		// the stop before yours: the alert goes off once the bus gets there
 		alertAt: count > 1 ? rows[count - 1].stopId : null
 	};
@@ -104,17 +108,13 @@ export function tripProgress(next, stopIds, boardId, destId) {
  * Where a shared ride stands, for the friend's view (`/ride/`): `ended` once the link has
  * expired, `arrived` when the bus has passed the destination, `boarding` while it hasn't
  * reached the boarding stop yet, otherwise `riding`. `lost` when the bus isn't reporting.
- * `rode`: the bus was already seen past the boarding stop. On a loop it comes round again,
- * so seeing the boarding stop ahead after that means it has passed the destination.
  * @param {ReturnType<typeof tripProgress>} prog
  * @param {number} now
  * @param {number} until
- * @param {boolean} [rode]
  */
-export function rideStatus(prog, now, until, rode = false) {
+export function rideStatus(prog, now, until) {
 	if (now > until) return 'ended';
 	if (!prog) return 'lost';
 	if (prog.arrived) return 'arrived';
-	if (prog.rows[0].passed) return 'riding';
-	return rode ? 'arrived' : 'boarding';
+	return prog.rows[0].passed ? 'riding' : 'boarding';
 }

@@ -62,6 +62,9 @@
 		stops.find((s) => s.id.toLowerCase() === id.toLowerCase());
 
 	const bus = $derived(vehicles.find((v) => v.name === q?.bus));
+	// On a loop the bus comes round again: once you've ridden past your boarding stop, seeing it
+	// ahead again means it has passed your stop (see tripProgress). Kept across reloads (rode.js).
+	let rode = $state(false);
 	const board = $derived(q ? stopOf(q.stop) : undefined);
 	const dest = $derived(q ? stopOf(q.to) : undefined);
 	const prog = $derived(
@@ -70,19 +73,17 @@
 					bus.next,
 					stops.map((s) => s.id),
 					board.id,
-					dest.id
+					dest.id,
+					rode
 				)
 			: null
 	);
 	// the bus has left your boarding stop (before that, "I'm on the bus" was tapped early)
 	const boarded = $derived(!!prog?.rows[0].passed);
-	// On a loop the bus comes round again: once you've ridden past your boarding stop, seeing it
-	// ahead again means the bus has already passed your stop (it's on its next loop).
-	let rode = $state(false);
 	$effect(() => {
 		if (boarded && !rode && q) ((rode = true), remember(q, destEta));
 	});
-	const arrived = $derived(!!prog && (prog.arrived || (rode && !boarded)));
+	const arrived = $derived(!!prog?.arrived);
 	const nextRow = $derived(prog?.rows.find((r, i) => i > 0 && !r.passed));
 	const destEta = $derived(prog?.rows.at(-1)?.eta);
 	// when the second shuttle next leaves the change stop: after you get there, or from now once you're there
