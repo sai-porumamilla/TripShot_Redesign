@@ -275,7 +275,7 @@
 		</header>
 
 		{#if fired && !arrived}
-			<p class="stop-next" role="alert">
+			<p class="stop-next appear" role="alert">
 				Your stop is next. Get ready to get off at {dest?.name}{conn?.name
 					? ` and change to ${conn.name}`
 					: ''}.
@@ -362,9 +362,12 @@
 					</div>
 
 					{#if sharing}
-						<button class="backdrop phone" aria-label="Close" onclick={() => (sharing = false)}
+						<button
+							class="backdrop backdrop-in phone"
+							aria-label="Close"
+							onclick={() => (sharing = false)}
 						></button>
-						<div class="card share" role="dialog" aria-labelledby="share-title">
+						<div class="card share sheet-in" role="dialog" aria-labelledby="share-title">
 							<p class="desktop label">Share my ride</p>
 							<h2 id="share-title" class="share-title">
 								<span class="phone">Share my ride</span><span class="desktop"
@@ -484,7 +487,7 @@
 		display: block;
 		height: 100%;
 		background: var(--route);
-		transition: width 0.6s ease;
+		transition: width 300ms var(--ease-in-out);
 	}
 	.ends {
 		display: flex;
@@ -607,7 +610,7 @@
 		z-index: 901;
 		display: grid;
 		gap: 12px;
-		padding: 20px 20px 24px;
+		padding: 20px 20px calc(24px + var(--safe-bottom));
 		border: 0;
 		border-radius: 20px 20px 0 0;
 	}

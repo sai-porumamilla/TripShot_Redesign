@@ -107,8 +107,10 @@
 	.route > :global(.icon) {
 		color: var(--muted);
 	}
-	.route:hover {
-		border-color: var(--muted);
+	@media (hover: hover) and (pointer: fine) {
+		.route:hover {
+			border-color: var(--muted);
+		}
 	}
 	.route.off .info span {
 		color: var(--muted);

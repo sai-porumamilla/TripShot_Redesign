@@ -20,7 +20,16 @@
 	--pill: #ffffff;
 	--map-ink: #16181c; /* walk lines and closed roads drawn on the map */
 
+	/* motion curves (Emil Kowalski's): strong ease-out to enter, ease-in-out to move, iOS-like drawer */
+	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+	--ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+	--ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+	/* the iPhone home indicator; 0 elsewhere (needs viewport-fit=cover in app.html) */
+	--safe-bottom: env(safe-area-inset-bottom, 0px);
+
 	font-family: 'Roboto', system-ui, sans-serif;
+	/* countdowns and times tick every few seconds: equal-width digits keep them from jittering */
+	font-variant-numeric: tabular-nums;
 	color: var(--ink);
 	background: var(--bg);
 	-webkit-text-size-adjust: 100%;
@@ -91,4 +100,86 @@ input {
 	overflow: hidden;
 	clip: rect(0 0 0 0);
 	white-space: nowrap;
+}
+
+/* Taps: no gray flash (the press below is the feedback) and no double-tap-zoom wait */
+a,
+button,
+input,
+label {
+	-webkit-tap-highlight-color: transparent;
+	touch-action: manipulation;
+}
+
+/* Press feedback on buttons and card links. Not on the tab bar: core navigation stays instant. */
+:where(button:not(:disabled, .backdrop), a.action, a.onboard, a.go) {
+	transition: transform 160ms var(--ease-out);
+}
+:where(button:not(:disabled, .backdrop), a.action, a.onboard, a.go):active {
+	transform: scale(0.97);
+}
+/* full-width cards: the same press, a little subtler */
+:where(a.dep, a.option, a.route) {
+	transition: transform 160ms var(--ease-out);
+}
+:where(a.dep, a.option, a.route):active {
+	transform: scale(0.98);
+}
+
+/* Things that appear while you're watching (leave now, a delay, your stop is next, a reminder)
+   settle in instead of popping. Entry only: they leave instantly. */
+.appear {
+	transition:
+		opacity 250ms var(--ease-out),
+		transform 250ms var(--ease-out);
+}
+@starting-style {
+	.appear {
+		opacity: 0;
+		transform: translateY(-6px);
+	}
+}
+
+/* Bottom sheets slide up from the edge they belong to; on desktop they're panels and just fade in */
+.sheet-in {
+	transition:
+		opacity 250ms var(--ease-out),
+		transform 400ms var(--ease-drawer);
+}
+.backdrop-in {
+	transition: opacity 300ms ease;
+}
+@starting-style {
+	.backdrop-in {
+		opacity: 0;
+	}
+}
+@media (max-width: 899px) {
+	@starting-style {
+		.sheet-in {
+			transform: translateY(100%);
+		}
+	}
+}
+@media (min-width: 900px) {
+	@starting-style {
+		.sheet-in {
+			opacity: 0;
+		}
+	}
+}
+
+/* Reduced motion: fades stay (they don't move anything), slides go */
+@media (prefers-reduced-motion: reduce) {
+	.appear,
+	.sheet-in {
+		transition: opacity 150ms ease;
+	}
+	@starting-style {
+		.appear,
+		.sheet-in {
+			opacity: 0;
+			transform: none;
+		}
+	}
 }

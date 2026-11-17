@@ -488,9 +488,13 @@
 		text-align: left;
 		cursor: pointer;
 	}
-	.suggestions button:hover,
 	.suggestions button:focus-visible {
 		background: var(--nav-active);
+	}
+	@media (hover: hover) and (pointer: fine) {
+		.suggestions button:hover {
+			background: var(--nav-active);
+		}
 	}
 	.suggestions span {
 		color: var(--muted);
@@ -617,8 +621,10 @@
 		color: inherit;
 		text-decoration: none;
 	}
-	a.option:hover {
-		border-color: var(--muted);
+	@media (hover: hover) and (pointer: fine) {
+		a.option:hover {
+			border-color: var(--muted);
+		}
 	}
 	.option > span {
 		display: grid;
