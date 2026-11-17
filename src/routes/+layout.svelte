@@ -11,14 +11,15 @@
 	/** @type {{children: import('svelte').Snippet}} */
 	let { children } = $props();
 
-	// ponytail: only "Now" exists so far; the other tabs get links as their screens are built
 	const NAV = /** @type {const} */ ([
 		{ label: 'Now', icon: 'clock', href: resolve('/') },
-		{ label: 'My trips', icon: 'bus', href: null },
-		{ label: 'Alerts', icon: 'bell', href: null },
-		{ label: 'Routes', icon: 'routes', href: null }
+		{ label: 'My trips', icon: 'bus', href: resolve('/search') },
+		{ label: 'Alerts', icon: 'bell', href: resolve('/alerts') },
+		{ label: 'Routes', icon: 'routes', href: resolve('/routes') }
 	]);
-	const isActive = (/** @type {string | null} */ href) => href === page.url.pathname;
+	// pages are served with a trailing slash ('/search/'); resolve() returns '/search'
+	const strip = (/** @type {string} */ p) => p.replace(/\/$/, '');
+	const isActive = (/** @type {string} */ href) => strip(href) === strip(page.url.pathname);
 
 	let now = $state(new Date());
 	onMount(() => {
@@ -50,18 +51,14 @@
 			<ul>
 				{#each NAV as item (item.label)}
 					<li>
-						{#if item.href}
-							<a
-								class="item"
-								class:active={isActive(item.href)}
-								href={item.href}
-								aria-current={isActive(item.href) ? 'page' : undefined}
-							>
-								<Icon name={item.icon} />{item.label}
-							</a>
-						{:else}
-							<span class="item"><Icon name={item.icon} />{item.label}</span>
-						{/if}
+						<a
+							class="item"
+							class:active={isActive(item.href)}
+							href={item.href}
+							aria-current={isActive(item.href) ? 'page' : undefined}
+						>
+							<Icon name={item.icon} />{item.label}
+						</a>
 					</li>
 				{/each}
 			</ul>
@@ -77,15 +74,11 @@
 
 	<nav class="bottomnav" aria-label="Main">
 		{#each NAV as item (item.label)}
-			{#if item.href}
-				<a
-					class:active={isActive(item.href)}
-					href={item.href}
-					aria-current={isActive(item.href) ? 'page' : undefined}>{item.label}</a
-				>
-			{:else}
-				<span>{item.label}</span>
-			{/if}
+			<a
+				class:active={isActive(item.href)}
+				href={item.href}
+				aria-current={isActive(item.href) ? 'page' : undefined}>{item.label}</a
+			>
 		{/each}
 	</nav>
 </div>
