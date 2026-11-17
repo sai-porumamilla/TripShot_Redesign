@@ -104,6 +104,9 @@
 		color: inherit;
 		text-decoration: none;
 	}
+	.route > :global(.icon) {
+		color: var(--muted);
+	}
 	.route:hover {
 		border-color: var(--muted);
 	}

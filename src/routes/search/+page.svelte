@@ -321,8 +321,11 @@
 		display: flex;
 		align-items: center;
 		background: var(--surface);
-		border: 2px solid #b8bdc8;
+		border: 2px solid var(--line-strong);
 		border-radius: 14px;
+	}
+	.search :global(.icon) {
+		color: var(--muted);
 	}
 	.search:focus-within {
 		outline: 3px solid var(--live);
@@ -405,7 +408,7 @@
 		margin-top: 8px;
 		padding: 16px 15px 17px 21px;
 		background: var(--surface);
-		border: 2px solid #b8bdc8;
+		border: 2px solid var(--line-strong);
 		border-radius: 16px;
 		overflow: hidden;
 	}
@@ -441,7 +444,7 @@
 	.chip {
 		padding: 3px 8px;
 		border-radius: 8px;
-		background: #edf0f5;
+		background: var(--chip);
 		font-size: 14px;
 		font-weight: 700;
 		line-height: 18px;
@@ -454,7 +457,7 @@
 	.sub {
 		font-size: 14px;
 		line-height: 19px;
-		color: #2d323c;
+		color: var(--ink-2);
 	}
 	.lead {
 		margin-top: 13px;
@@ -467,7 +470,7 @@
 		border: 0;
 		border-radius: 12px;
 		background: var(--action);
-		color: #fff;
+		color: var(--on-action);
 		font-size: 16px;
 		font-weight: 700;
 		text-decoration: none;
@@ -479,7 +482,7 @@
 	.preview {
 		height: 140px;
 		margin-top: 12px;
-		border: 1px solid #b8bdc8;
+		border: 1px solid var(--line-strong);
 		border-radius: 12px;
 		overflow: hidden;
 	}
@@ -735,10 +738,10 @@
 			height: 16px;
 			border: 1px solid var(--line);
 			border-radius: 8px;
-			background: #fff;
+			background: var(--surface);
 		}
 		.timeline li.board::before {
-			background: var(--ink);
+			background: var(--accent);
 		}
 		.timeline strong {
 			font-size: 18px;

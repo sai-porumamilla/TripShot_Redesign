@@ -323,6 +323,22 @@
 	.dark-text .back img {
 		filter: invert(1);
 	}
+	:global(:root[data-theme='night']) .arrival {
+		background: var(--surface);
+		color: var(--ink);
+		border: 1px solid var(--line);
+	}
+	:global(:root[data-theme='night']) .title {
+		color: var(--accent);
+	}
+	:global(:root[data-theme='night']) .back img {
+		filter: none;
+	}
+	/* bus icons are drawn white / gray: flip them to stay visible on dark */
+	:global(:root[data-theme='night']) .bus-chip img,
+	:global(:root[data-theme='night']) .busrow > img {
+		filter: invert(1);
+	}
 	.title {
 		margin-top: 22px;
 		font-size: 14px;
@@ -344,7 +360,7 @@
 	.pill {
 		padding: 3px 8px;
 		border-radius: 12px;
-		background: #fff;
+		background: var(--pill);
 		color: var(--ink);
 		font-size: 13px;
 		font-weight: 700;
@@ -361,7 +377,7 @@
 		padding: 12px 14px;
 		border-radius: 12px;
 		background: var(--ink);
-		color: #fff;
+		color: var(--surface);
 		font-weight: 700;
 	}
 	.mapbox {
@@ -384,7 +400,7 @@
 		width: 36px;
 		height: 4px;
 		border-radius: 2px;
-		background: #b8bdc8;
+		background: var(--line-strong);
 	}
 	.busrow {
 		display: flex;
@@ -426,7 +442,7 @@
 		border-left: 4px solid var(--route);
 	}
 	.rows li.yours ~ li::before {
-		border-left: 4px dashed #b8bdc8;
+		border-left: 4px dashed var(--line-strong);
 	}
 	.name {
 		font-size: 15px;
@@ -440,6 +456,9 @@
 	}
 	.yours .name {
 		font-size: 16px;
+	}
+	.yours .sub {
+		color: var(--accent);
 	}
 	.sub {
 		font-size: 13px;
@@ -478,7 +497,7 @@
 		border: 0;
 		border-radius: 12px;
 		background: var(--action);
-		color: #fff;
+		color: var(--on-action);
 		font-size: 16px;
 		font-weight: 700;
 		cursor: pointer;
@@ -641,11 +660,11 @@
 			height: 16px;
 			border: 1px solid var(--line);
 			border-radius: 8px;
-			background: #fff;
+			background: var(--surface);
 		}
 		.yours .dot {
-			background: var(--ink);
-			border-color: var(--ink);
+			background: var(--accent);
+			border-color: var(--accent);
 		}
 		.name {
 			font-size: 18px;
@@ -665,7 +684,7 @@
 		}
 		.yours .sub {
 			font-weight: 700;
-			color: var(--ink);
+			color: var(--accent);
 		}
 		.time {
 			font-size: 18px;

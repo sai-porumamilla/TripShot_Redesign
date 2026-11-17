@@ -100,7 +100,7 @@
 		padding: 10px 16px;
 		border-radius: 10px;
 		background: var(--action);
-		color: #fff;
+		color: var(--on-action);
 		font-weight: 700;
 		text-decoration: none;
 	}

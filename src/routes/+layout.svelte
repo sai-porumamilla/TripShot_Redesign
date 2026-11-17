@@ -114,7 +114,7 @@
 		text-decoration: none;
 	}
 	.bottomnav .active {
-		color: var(--ink);
+		color: var(--accent);
 	}
 
 	/* ---------- Desktop ---------- */
@@ -225,7 +225,7 @@
 		}
 		.item.active {
 			background: var(--nav-active);
-			color: var(--ink);
+			color: var(--accent);
 			font-weight: 700;
 		}
 		.hours {
@@ -239,6 +239,13 @@
 			font-size: 18px;
 			font-weight: 700;
 			line-height: 22.5px;
+		}
+		:global(:root[data-theme='night']) .hours {
+			background: #2b2312;
+			border: 1.5px solid var(--accent);
+		}
+		:global(:root[data-theme='night']) .hours-title {
+			color: var(--accent);
 		}
 		.hours-text {
 			margin-top: 8px;

@@ -12,11 +12,41 @@
 	--notice-bg: #fff4e4;
 	--notice-ink: #874600;
 	--nav-active: #ebeae6;
+	--on-action: #ffffff; /* text on --action buttons */
+	--accent: var(--ink); /* "you" emphasis: your stop, active tab */
+	--line-strong: #b8bdc8;
+	--ink-2: #2d323c;
+	--chip: #edf0f5;
+	--pill: #ffffff;
+	--map-ink: #16181c; /* walk lines and closed roads drawn on the map */
 
 	font-family: 'Roboto', system-ui, sans-serif;
 	color: var(--ink);
 	background: var(--bg);
 	-webkit-text-size-adjust: 100%;
+}
+
+/* NightRide look (Figma frame 4): set on <html> by app.html, 10 PM–2 AM or with ?theme=night */
+:root[data-theme='night'] {
+	--bg: #121418;
+	--surface: #1c1f24;
+	--ink: #f2f3f5;
+	--muted: #a3a9b5;
+	--line: #353a43;
+	--line-strong: #4b515c;
+	--action: #ffb020; /* NightRide amber */
+	--on-action: #121418;
+	--accent: #ffb020;
+	--alert: #ff5c6c;
+	--live: #7fb0ff;
+	--notice-bg: #3a2c0f;
+	--notice-ink: #ffd58a;
+	--nav-active: #2a2e35;
+	--ink-2: #d5d8de;
+	--chip: #2a2e35;
+	--pill: #2a2e35;
+	--map-ink: #f2f3f5;
+	color-scheme: dark;
 }
 
 *,
