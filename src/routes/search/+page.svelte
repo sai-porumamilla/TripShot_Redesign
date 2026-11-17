@@ -95,12 +95,15 @@
 	const mins = (/** @type {number} */ t) => Math.max(0, Math.round((t - now) / 60000));
 	const from = $derived(here.real ? 'Your location' : `Current location (${here.name})`);
 	const home = $derived(dest?.kind === 'Dorm' || dest?.kind === 'Apartments');
+	let delay = $state(''); // a delay replay (?delay=…) rides along to the live route
 	const tail = (/** @type {{ walkFrom: number }} */ t) =>
-		`&place=${encodeURIComponent(dest?.name ?? '')}&after=${t.walkFrom}`;
+		`&place=${encodeURIComponent(dest?.name ?? '')}&after=${t.walkFrom}${delay}`;
 
 	// Trips saved from the on-board screen (this browser only), offered before you type
 	let saved = $state(/** @type {{ to: string }[]} */ ([]));
 	onMount(() => {
+		const d = new URLSearchParams(location.search).get('delay');
+		if (d) delay = `&delay=${encodeURIComponent(d)}`;
 		try {
 			saved = JSON.parse(localStorage.getItem('savedTrips') ?? '[]');
 		} catch {

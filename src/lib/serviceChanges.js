@@ -68,3 +68,37 @@ export function applyServiceChange(change, stops, routes) {
 		}))
 	};
 }
+
+/**
+ * Delays that can be replayed with `?delay=<id>` on the live route page. The page detects
+ * delays itself (an ETA that slips 3+ min past the first one it saw), so a replay only
+ * pushes the live ETAs back a few seconds after load and lets that detection take over.
+ * @type {Record<string, { minutes: number, reason: string, note: string }>}
+ */
+export const DELAYS = {
+	calhoun: {
+		minutes: 5,
+		reason: 'Heavy traffic on Calhoun St. The bus is moving. This isn’t a cancellation.',
+		note: 'Replaying a 5-min traffic delay on live buses.'
+	}
+};
+
+/** The delay named in a query string, if any (`?delay=calhoun`). */
+export const delayFrom = (/** @type {string} */ search) =>
+	DELAYS[new URLSearchParams(search).get('delay') ?? ''] ?? null;
+
+/**
+ * Push every upcoming ETA back by `minutes`.
+ * @template {{ next: { eta: string }[] }} V
+ * @param {V[]} vehicles
+ * @param {number} minutes
+ * @returns {V[]}
+ */
+export const applyDelay = (vehicles, minutes) =>
+	vehicles.map((v) => ({
+		...v,
+		next: v.next.map((n) => ({
+			...n,
+			eta: new Date(Date.parse(n.eta) + minutes * 60000).toISOString()
+		}))
+	}));

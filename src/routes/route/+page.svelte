@@ -4,7 +4,9 @@
 	import { distanceM, nearbyStops, shortName, textOn, walkMinutes } from '#lib/departures.js';
 	import { here, locate } from '#lib/here.svelte.js';
 	import { nearestIndex, pathBetween, pickVehicle, progressRows } from '#lib/route.js';
-	import { applyServiceChange, scenarioFrom } from '#lib/serviceChanges.js';
+	import { applyDelay, applyServiceChange, delayFrom, scenarioFrom } from '#lib/serviceChanges.js';
+	import { planTrips } from '#lib/trips.js';
+	import places from '#lib/places.json';
 	import backWhite from '#lib/assets/icons/back-white.svg';
 	import busWhite from '#lib/assets/icons/bus-white.svg';
 	import busInk from '#lib/assets/icons/bus-ink.svg';
@@ -15,7 +17,9 @@
 
 	/** @typedef {{ id: string, name: string, loc: number[] }} Stop */
 	let params = $state(
-		/** @type {{ id: string, stop: string | null, to: string | null } | null} */ (null)
+		/** @type {{ id: string, stop: string | null, to: string | null, place: string | null, after: number } | null} */ (
+			null
+		)
 	);
 	let detail = $state(
 		/** @type {{ name: string, color: string, stops: Stop[], path: number[][] } | null} */ (null)
@@ -25,15 +29,30 @@
 	let now = $state(Date.now());
 	let change = $state(/** @type {import('#lib/serviceChanges.js').ServiceChange | null} */ (null));
 	let query = $state(''); // carried on to the on-board screen (destination, scenario, final walk)
+	let delayReplay = $state(
+		/** @type {{ minutes: number, reason: string, note: string } | null} */ (null)
+	);
+	let delayOn = $state(false);
+	let noReplay = $state(''); // this page's query without the delay replay
 
 	onMount(() => {
 		// read the query in the browser: the page is prerendered without one
 		const q = new URLSearchParams(location.search);
 		query = location.search;
 		change = scenarioFrom(location.search);
+		delayReplay = delayFrom(location.search);
+		noReplay = `?${new URLSearchParams([...q].filter(([k]) => k !== 'delay'))}`;
+		// the replayed delay hits a few seconds in, so you see the ETA change like it would live
+		const hit = delayReplay && setTimeout(() => (delayOn = true), 8000);
 		const id = q.get('id');
 		if (!id) return void (failed = true);
-		params = { id, stop: q.get('stop'), to: q.get('to') };
+		params = {
+			id,
+			stop: q.get('stop'),
+			to: q.get('to'),
+			place: q.get('place'),
+			after: Number(q.get('after')) || 0
+		};
 		locate();
 		getJSON(`/routes/${id}`).then(
 			(d) => (detail = d),
@@ -47,7 +66,7 @@
 		load();
 		const poll = setInterval(load, 10000);
 		const tick = setInterval(() => (now = Date.now()), 1000);
-		return () => (clearInterval(poll), clearInterval(tick));
+		return () => (clearInterval(poll), clearInterval(tick), hit && clearTimeout(hit));
 	});
 
 	// Apply an active service change: the closed stop is replaced by the temporary one
@@ -57,7 +76,10 @@
 			: null
 	);
 	const routeStops = $derived(view?.closed ? view.stops : (detail?.stops ?? []));
-	const vehicles = $derived(view?.closed ? view.routes[0].vehicles : (live?.vehicles ?? []));
+	const vehicles = $derived.by(() => {
+		const v = view?.closed ? view.routes[0].vehicles : (live?.vehicles ?? []);
+		return delayOn && delayReplay ? applyDelay(v, delayReplay.minutes) : v;
+	});
 	const byId = $derived(new Map(routeStops.map((s) => [s.id.toLowerCase(), s])));
 	const stopOf = (/** @type {string} */ id) => byId.get(id.toLowerCase());
 	// your stop: the one you tapped, or the route's nearest stop to you
@@ -69,7 +91,17 @@
 	);
 	const dest = $derived(params?.to ? stopOf(params.to) : undefined);
 	const walk = $derived(your ? walkMinutes(distanceM(here.loc, your.loc)) : 0);
-	const pick = $derived(live && your ? pickVehicle(vehicles, your.id, now) : null);
+	// "Snooze 1 bus" skips the bus you were going to catch
+	let skipped = $state(/** @type {string[]} */ ([]));
+	const pick = $derived(
+		live && your
+			? pickVehicle(
+					vehicles.filter((v) => !skipped.includes(v.name)),
+					your.id,
+					now
+				)
+			: null
+	);
 	const eta = $derived(pick ? Date.parse(pick.at.eta) : null);
 	const minutes = $derived(eta === null ? null : Math.max(0, Math.round((eta - now) / 60000)));
 	const rows = $derived(
@@ -79,7 +111,19 @@
 		pick ? Math.max(0, Math.round((now - Date.parse(pick.vehicle.seen)) / 1000)) : null
 	);
 	const stale = $derived(seenAgo !== null && seenAgo > 90);
-	const late = $derived(pick?.at.status === 'Delayed');
+
+	// Delay: the ETA has slipped 3+ min past the first one we saw for this bus at your stop.
+	// (TripShot's own "Delayed" flag is set on nearly every bus, so it isn't used.)
+	const firstEta = $state(/** @type {Record<string, number>} */ ({}));
+	const etaKey = $derived(pick && your ? `${pick.vehicle.name}@${your.id}` : '');
+	$effect(() => {
+		if (etaKey && eta !== null && !(etaKey in firstEta)) firstEta[etaKey] = eta;
+	});
+	const slip = $derived(
+		eta !== null && etaKey in firstEta ? Math.round((eta - firstEta[etaKey]) / 60000) : 0
+	);
+	const late = $derived(slip >= 3);
+	let keptAlert = $state(false);
 
 	const name = $derived(detail ? shortName(detail.name) : '');
 	const color = $derived(detail?.color ?? '#16181c');
@@ -125,25 +169,89 @@
 	};
 	const SUB = { next: 'Next stop', way: 'On the way', dest: 'Get off here' };
 
+	// "Still faster?" when late: keep waiting, another route, or walk (needs a destination)
+	let all = $state(/** @type {{ routes: any[], stops: Stop[] } | null} */ (null));
+	$effect(() => {
+		if (!late || !dest || all) return;
+		Promise.all([getJSON('/live'), getJSON('/stops')]).then(
+			([l, st]) => (all = { routes: l.routes, stops: st }),
+			() => {}
+		);
+	});
+	const options = $derived.by(() => {
+		const arrive = rows.at(-1)?.kind === 'dest' ? Date.parse(rows[rows.length - 1].eta) : null;
+		if (!all || !dest || arrive === null || !params) return [];
+		const goal =
+			/** @type {{ name: string, loc: number[] }[]} */ (places).find(
+				(p) => p.name === params?.place
+			)?.loc ?? dest.loc;
+		// ponytail: the comparison uses /live as fetched once when the delay is noticed
+		const plan = planTrips(all.routes, all.stops, here.loc, goal, now);
+		const other = plan.shuttles.find((t) => t.route.id.toLowerCase() !== params?.id.toLowerCase());
+		return [
+			{
+				label: `Wait for ${name}`,
+				sub: 'Keep your current trip',
+				at: arrive + params.after * 60000
+			},
+			...(other
+				? [
+						{
+							label: `${shortName(other.route.name)} from ${other.board.name}`,
+							sub: 'Alternative shuttle',
+							at: other.arriveAt
+						}
+					]
+				: []),
+			{ label: 'Walk', sub: 'No shuttle needed', at: plan.walk.arriveAt }
+		];
+	});
+
 	// "Tell me when to leave": bus arrival − your walk − 1 min buffer, recomputed as the ETA moves
 	let alertOn = $state(false);
 	let fired = $state(false);
+	let gone = $state(false); // "On my way": the leave-now card is dismissed
+	let base = $state(/** @type {number | null} */ (null)); // minutes away when the alert was set
 	const leaveAt = $derived(eta === null ? null : eta - (walk + 1) * 60000);
 	$effect(() => {
 		if (!alertOn || fired || leaveAt === null || now < leaveAt) return;
 		fired = true;
 		if ('Notification' in window && Notification.permission === 'granted')
 			new Notification(`Leave now for ${your?.name}`, {
-				body: `${name} arrives in ${minutes} min. Your walk is ${walk} min.`,
-				icon: undefined
+				body: `${name} is ${minutes} min away. Your walk is ${walk} min.`
 			});
 	});
+	// the bus slipped after "Leave now" went off: re-arm the alert for the new time ("Alert moved")
+	$effect(() => {
+		if (alertOn && fired && leaveAt !== null && leaveAt - now > 60000) fired = false;
+	});
 	async function toggleAlert() {
+		if (late && alertOn && !keptAlert) return void (keptAlert = true); // "Keep my alert"
 		if (!alertOn && 'Notification' in window && Notification.permission === 'default')
 			await Notification.requestPermission();
 		alertOn = !alertOn;
-		fired = false;
+		fired = gone = false;
+		base = minutes;
 	}
+	// the bus after this one, for "Snooze 1 bus"
+	const later = $derived(
+		pick && your
+			? pickVehicle(
+					vehicles.filter((v) => v !== pick.vehicle && !skipped.includes(v.name)),
+					your.id,
+					now
+				)
+			: null
+	);
+	function snooze() {
+		if (!pick || !later) return;
+		skipped = [...skipped, pick.vehicle.name];
+		fired = gone = false;
+		base = Math.max(1, Math.round((Date.parse(later.at.eta) - now) / 60000));
+	}
+	const approach = $derived(
+		base && minutes !== null ? Math.min(1, Math.max(0, 1 - minutes / base)) : 0
+	);
 
 	// Back returns to wherever you came from in the app (Now, My trips, Routes);
 	// opened from a shared link, it falls through to the href (Running now).
@@ -184,18 +292,79 @@
 			{#if fresh}
 				<div class="pills">
 					<span class="pill" class:stale>{fresh}</span>
-					<span class="pill" class:late>{late ? 'Running late' : 'On time'}</span>
+					<span class="pill" class:late>{late ? `Delayed ${slip} min` : 'On time'}</span>
 				</div>
 			{/if}
 		</header>
 
-		{#if fired}
-			<p class="leave-now" role="alert">
-				Leave now for {your?.name}. The bus arrives in {minutes} min.
+		{#if delayReplay}
+			<p class="replay">
+				{delayReplay.note} <a href="{resolve('/route')}/{noReplay}">Exit replay</a>
 			</p>
 		{/if}
 
+		{#if fired && !gone}
+			<section class="leave" role="alert" aria-labelledby="leave-title">
+				<p class="leave-label">TripShot · now</p>
+				<h2 id="leave-title">Leave now for {your?.name}</h2>
+				<p class="leave-text">{name} is {minutes} min away. Your walk is {walk} min.</p>
+				<div class="track" aria-hidden="true"><span style:width="{approach * 100}%"></span></div>
+				<p class="ends"><span>{busNext ?? 'Bus'}</span><span>Your stop</span></p>
+				<div class="leave-actions">
+					<button class="go" onclick={() => ((gone = true), (alertOn = false))}>On my way</button>
+					<button class="snooze" onclick={snooze} disabled={!later}>
+						{later ? 'Snooze 1 bus' : 'No later bus yet'}
+					</button>
+				</div>
+				<p class="leave-note">Your {walk} min walk from {here.name} is already counted.</p>
+			</section>
+		{/if}
+
 		<div class="grid">
+			{#if late}
+				<div class="delay">
+					<div class="changed">
+						<p class="label desktop">What changed</p>
+						<p class="changed-title">
+							ETA changed: {Math.max(0, (minutes ?? 0) - slip)} min → {minutes} min
+						</p>
+						<p class="changed-text">
+							{delayReplay?.reason ??
+								(stale
+									? 'The bus hasn’t reported its location recently.'
+									: 'The bus is moving and still reporting its location. This isn’t a cancellation.')}
+						</p>
+					</div>
+					<p class="moved phone">
+						<img src={alertBell} alt="" width="18" height="23" />
+						<span>
+							<strong
+								>{alertOn && leaveAt !== null
+									? `Alert moved to ${clock(leaveAt)}`
+									: 'Wait inside'}</strong
+							>
+							{alertOn
+								? 'Stay inside. We’ll tell you when to leave.'
+								: 'Turn on a leave-now alert and we’ll tell you when to go.'}
+						</span>
+					</p>
+					{#if options.length}
+						<div class="compare">
+							<p class="label">Still faster?</p>
+							<p class="desktop compare-title">Your options, side by side</p>
+							<ul>
+								{#each options as o, i (o.label)}
+									<li class:current={i === 0}>
+										<span><strong>{o.label}</strong><span class="desktop">{o.sub}</span></span>
+										<strong class="when">~{clock(o.at)}</strong>
+									</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
+				</div>
+			{/if}
+
 			<section class="progress card" aria-labelledby="progress-title">
 				<h2 id="progress-title" class="label desktop">Route progress</h2>
 				<div class="mapbox">
@@ -258,19 +427,30 @@
 			<aside>
 				<div class="card alert">
 					<p class="label desktop">
-						<img src={alertBell} alt="" width="18" height="23" />Make the wait yours
+						<img src={alertBell} alt="" width="18" height="23" />{late
+							? 'Alert updated'
+							: 'Make the wait yours'}
 					</p>
-					<p class="desktop alert-title">No need to watch the route.</p>
-					<p class="desktop alert-text">
-						Get alerted based on your {walk} min walk to {your?.name ?? 'your stop'}.
-					</p>
+					{#if late && alertOn && leaveAt !== null}
+						<p class="desktop alert-title">Alert moved to {clock(leaveAt)}</p>
+						<p class="desktop alert-text">Stay inside. We’ll tell you when to leave.</p>
+					{:else}
+						<p class="desktop alert-title">No need to watch the route.</p>
+						<p class="desktop alert-text">
+							Get alerted based on your {walk} min walk to {your?.name ?? 'your stop'}.
+						</p>
+					{/if}
 					<button
 						class="action"
 						class:on={alertOn}
 						onclick={toggleAlert}
 						disabled={leaveAt === null}
 					>
-						{alertOn ? 'Cancel alert' : 'Tell me when to leave'}
+						{alertOn
+							? late && !keptAlert
+								? 'Keep my alert'
+								: 'Cancel alert'
+							: 'Tell me when to leave'}
 					</button>
 					{#if dest && pick}
 						<a
@@ -385,12 +565,167 @@
 	.pill.late {
 		color: var(--alert);
 	}
-	.leave-now {
+	.replay {
+		margin: 8px 18px 0;
+		font-size: 12px;
+		line-height: 16px;
+		color: var(--muted);
+	}
+	.replay a {
+		color: inherit;
+		font-weight: 700;
+	}
+	/* Leave-now alert (Figma frames 6 / 06): styled like the lock-screen notification */
+	.leave {
 		margin: 12px 18px 0;
-		padding: 12px 14px;
+		padding: 16px;
+		border-radius: 16px;
+		background: #222838;
+		color: #fff;
+	}
+	:global(:root[data-theme='night']) .leave {
+		border: 1px solid var(--accent);
+	}
+	.leave-label {
+		font-size: 12px;
+		font-weight: 700;
+		letter-spacing: 0.8px;
+		text-transform: uppercase;
+		color: #c9cdd6;
+	}
+	.leave h2 {
+		margin-top: 8px;
+		font-size: 20px;
+		line-height: 26px;
+	}
+	.leave-text {
+		margin-top: 8px;
+		font-size: 15px;
+		line-height: 21px;
+	}
+	.leave .track {
+		height: 8px;
+		margin-top: 14px;
+		border-radius: 4px;
+		background: rgb(255 255 255 / 0.2);
+		overflow: hidden;
+	}
+	.leave .track span {
+		display: block;
+		height: 100%;
+		background: #fff;
+		transition: width 0.6s ease;
+	}
+	.leave .ends {
+		display: flex;
+		justify-content: space-between;
+		margin-top: 6px;
+		font-size: 13px;
+		color: #c9cdd6;
+	}
+	.leave-actions {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 10px;
+		margin-top: 14px;
+	}
+	.leave-actions button {
+		height: 44px;
+		border: 0;
+		border-radius: 10px;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.go {
+		background: var(--action);
+		color: var(--on-action);
+		box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.4);
+	}
+	.snooze {
+		background: #edf0f5;
+		color: #16181c;
+	}
+	.snooze:disabled {
+		opacity: 0.6;
+		cursor: default;
+	}
+	.leave-note {
+		margin-top: 10px;
+		font-size: 13px;
+		color: #c9cdd6;
+	}
+	/* Delay explained (Figma frames 5 / 05) */
+	.delay {
+		display: grid;
+		gap: 12px;
+		margin: 12px 18px 0;
+	}
+	.changed {
+		padding: 14px 16px;
+		border: 1px solid #f3c47a;
 		border-radius: 12px;
-		background: var(--ink);
-		color: var(--surface);
+		background: var(--notice-bg);
+		color: var(--notice-ink);
+	}
+	.changed-title {
+		font-size: 17px;
+		font-weight: 700;
+		line-height: 22px;
+	}
+	.changed-text {
+		margin-top: 4px;
+		font-size: 14px;
+		line-height: 19px;
+	}
+	.moved {
+		display: flex;
+		gap: 12px;
+		align-items: start;
+		padding: 14px 16px;
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		background: var(--surface);
+		font-size: 14px;
+		line-height: 19px;
+		color: var(--muted);
+	}
+	.moved span {
+		display: grid;
+		gap: 2px;
+	}
+	.moved strong {
+		font-size: 16px;
+		color: var(--ink);
+	}
+	.compare > .label {
+		font-size: 13px;
+		font-weight: 700;
+		letter-spacing: 0.5px;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
+	.compare ul {
+		margin-top: 8px;
+		padding: 6px 0;
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		background: var(--surface);
+	}
+	.compare li {
+		display: flex;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 6px 14px;
+		font-size: 15px;
+		color: var(--muted);
+	}
+	.compare li strong {
+		font-weight: 400;
+	}
+	.compare li.current {
+		color: var(--ink);
+	}
+	.compare li.current strong {
 		font-weight: 700;
 	}
 	.mapbox {
@@ -603,8 +938,92 @@
 			font-size: 16px;
 			line-height: 24px;
 		}
-		.leave-now {
+		.replay {
+			margin: 10px 0 0;
+		}
+		.leave {
 			margin: 16px 0 0;
+			padding: 24px 28px;
+		}
+		.leave h2 {
+			font-size: 32px;
+			line-height: 40px;
+		}
+		.leave-text {
+			font-size: 17px;
+		}
+		.leave-actions {
+			max-width: 520px;
+		}
+		.leave-actions button {
+			height: 48px;
+		}
+		.delay {
+			grid-column: 1;
+			gap: 24px;
+			margin: 0;
+		}
+		.progress {
+			grid-column: 1;
+		}
+		/* the alert column runs alongside the delay cards and the route progress */
+		.grid > aside {
+			grid-column: 2;
+			grid-row: 1 / span 2;
+		}
+		.changed {
+			padding: 23px;
+			border-radius: 16px;
+		}
+		.changed .label {
+			color: var(--muted);
+		}
+		.changed-title {
+			margin-top: 18px;
+			font-size: 28px;
+			line-height: 35px;
+		}
+		.changed-text {
+			margin-top: 12px;
+			font-size: 17px;
+			line-height: 26px;
+		}
+		.compare {
+			padding: 23px;
+			border: 1px solid var(--line);
+			border-radius: 16px;
+			background: var(--surface);
+		}
+		.compare-title {
+			margin-top: 8px;
+			font-size: 22px;
+			font-weight: 700;
+		}
+		.compare ul {
+			margin-top: 16px;
+			padding: 0;
+			border: 0;
+		}
+		.compare li {
+			align-items: center;
+			padding: 12px 16px;
+			border-radius: 10px;
+			font-size: 18px;
+			color: var(--ink);
+		}
+		.compare li > span {
+			display: grid;
+			gap: 4px;
+		}
+		.compare li > span span {
+			font-size: 14px;
+			color: var(--muted);
+		}
+		.compare li.current {
+			background: var(--nav-active);
+		}
+		.compare .when {
+			font-size: 22px;
 		}
 		.grid {
 			display: grid;
