@@ -99,3 +99,18 @@ export function tripProgress(next, stopIds, boardId, destId) {
 		alertAt: count > 1 ? rows[count - 1].stopId : null
 	};
 }
+
+/**
+ * Where a shared ride stands, for the friend's view (`/ride/`): `ended` once the link has
+ * expired, `arrived` when the bus has passed the destination, `boarding` while it hasn't
+ * reached the boarding stop yet, otherwise `riding`. `lost` when the bus isn't reporting.
+ * @param {ReturnType<typeof tripProgress>} prog
+ * @param {number} now
+ * @param {number} until
+ */
+export function rideStatus(prog, now, until) {
+	if (now > until) return 'ended';
+	if (!prog) return 'lost';
+	if (prog.arrived) return 'arrived';
+	return prog.rows[0].passed ? 'riding' : 'boarding';
+}

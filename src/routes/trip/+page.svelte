@@ -36,6 +36,7 @@
 		const poll = setInterval(load, 10000);
 		const tick = setInterval(() => (now = Date.now()), 5000);
 		try {
+			shareName = localStorage.getItem('shareName') ?? '';
 			saved = JSON.parse(localStorage.getItem('savedTrips') ?? '[]');
 		} catch {
 			// private mode or blocked storage: saving just won't persist
@@ -143,6 +144,58 @@
 			localStorage.setItem('savedTrips', JSON.stringify(saved));
 		} catch {
 			// storage blocked: kept for this visit only
+		}
+	}
+
+	// Share my ride (Figma frames 12 / 012): a link a friend opens to follow this bus — the bus,
+	// never this phone's location — until you get off. No server: everything is in the link.
+	let sharing = $state(false);
+	let shareName = $state('');
+	let shared = $state('');
+	const sharer = $derived(shareName.trim());
+	const shareText = $derived(
+		`${sharer ? `${sharer} is` : 'I’m'} riding ${name} to ${dest?.name}. Follow along until ${sharer ? 'they get' : 'I get'} off:`
+	);
+	const shareUrl = $derived.by(() => {
+		if (!q || !destEta) return '';
+		const params = new URLSearchParams({
+			id: q.id,
+			bus: q.bus,
+			stop: q.stop,
+			to: q.to,
+			place,
+			after: String(after),
+			// the link stops an hour after the expected arrival (room for a delay)
+			until: String(Date.parse(destEta) + 60 * 60000),
+			...(sharer && { name: sharer }),
+			...(q.scenario && { scenario: q.scenario })
+		});
+		return `${location.origin}${resolve('/ride')}/?${params}`;
+	});
+	function rememberName() {
+		try {
+			localStorage.setItem('shareName', sharer);
+		} catch {
+			// storage blocked: the name is just not remembered
+		}
+	}
+	async function copy() {
+		rememberName();
+		try {
+			await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+			shared = 'Link copied. Paste it into a message.';
+		} catch {
+			shared = 'Couldn’t copy automatically. Select the link above and copy it.';
+		}
+	}
+	async function share() {
+		rememberName();
+		if (!navigator.share) return copy();
+		try {
+			await navigator.share({ title: 'Follow my ride', text: shareText, url: shareUrl });
+			shared = 'Shared.';
+		} catch {
+			// the share sheet was closed: nothing to do
 		}
 	}
 </script>
@@ -271,18 +324,53 @@
 						<p class="desktop status">{alertOn ? 'Enabled' : 'Off'}</p>
 					</div>
 
-					{#if headsUp}
-						<div class="card heads-up">
-							<p class="label">Heads up for later</p>
-							<p class="desktop heads-title">Heading back later?</p>
-							<p class="heads-text">{headsUp}</p>
+					{#if sharing}
+						<button class="backdrop phone" aria-label="Close" onclick={() => (sharing = false)}
+						></button>
+						<div class="card share" role="dialog" aria-labelledby="share-title">
+							<p class="desktop label">Share my ride</p>
+							<h2 id="share-title" class="share-title">
+								<span class="phone">Share my ride</span><span class="desktop"
+									>Let a friend follow this bus</span
+								>
+							</h2>
+							<p class="phone muted">A friend can follow your bus until you get off.</p>
+							<label class="field">
+								<span>Your name (optional)</span>
+								<input bind:value={shareName} autocomplete="given-name" />
+							</label>
+							<div class="preview">
+								<p>{shareText}</p>
+								<p class="url">{shareUrl}</p>
+							</div>
+							<div class="share-actions">
+								<button class="primary" onclick={share}>Share…</button>
+								<button class="secondary" onclick={copy}>Copy link</button>
+							</div>
+							{#if shared}<p class="shared" role="status">{shared}</p>{/if}
+							<p class="fine">Shows the bus, not your location. The link stops after your trip.</p>
+							<button class="link" onclick={() => (sharing = false)}>Close</button>
 						</div>
-					{/if}
+					{:else}
+						{#if headsUp}
+							<div class="card heads-up">
+								<p class="label">Heads up for later</p>
+								<p class="desktop heads-title">Heading back later?</p>
+								<p class="heads-text">{headsUp}</p>
+							</div>
+						{/if}
 
-					<button class="card save" onclick={save} aria-pressed={isSaved}>
-						<span class="star" aria-hidden="true">{isSaved ? '★' : '☆'}</span>
-						{isSaved ? `Saved “${tripName}”` : `Save “${tripName}” trip`}
-					</button>
+						<button class="card save" onclick={save} aria-pressed={isSaved}>
+							<span class="star" aria-hidden="true">{isSaved ? '★' : '☆'}</span>
+							{isSaved ? `Saved “${tripName}”` : `Save “${tripName}” trip`}
+						</button>
+
+						{#if !prog.arrived}
+							<button class="share-open" onclick={() => ((sharing = true), (shared = ''))}
+								>Share my ride</button
+							>
+						{/if}
+					{/if}
 
 					<a class="end" href={resolve('/')}>{prog.arrived ? 'Done' : 'End trip'}</a>
 				</aside>
@@ -416,6 +504,123 @@
 	.star {
 		font-size: 22px;
 		line-height: 1;
+	}
+	.share-open {
+		height: 48px;
+		border: 2px solid var(--ink);
+		border-radius: 12px;
+		background: var(--surface);
+		color: var(--ink);
+		font: inherit;
+		font-size: 16px;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	/* the share panel: a bottom sheet on phones */
+	.backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 900;
+		border: 0;
+		background: rgb(0 0 0 / 0.45);
+	}
+	.share {
+		position: fixed;
+		inset: auto 0 0 0;
+		z-index: 901;
+		display: grid;
+		gap: 12px;
+		padding: 20px 20px 24px;
+		border: 0;
+		border-radius: 20px 20px 0 0;
+	}
+	.share-title {
+		font-family: 'Inter', sans-serif;
+		font-size: 22px;
+	}
+	.field {
+		display: grid;
+		gap: 6px;
+		font-size: 12px;
+		font-weight: 700;
+		letter-spacing: 0.5px;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
+	.field input {
+		height: 44px;
+		padding: 0 12px;
+		border: 1px solid var(--line-strong);
+		border-radius: 10px;
+		background: var(--surface);
+		font-size: 16px;
+		font-weight: 400;
+		letter-spacing: 0;
+		text-transform: none;
+		color: var(--ink);
+	}
+	.preview {
+		display: grid;
+		gap: 4px;
+		padding: 12px 14px;
+		border-radius: 12px;
+		background: var(--chip);
+		font-size: 15px;
+		line-height: 21px;
+	}
+	.url {
+		overflow: hidden;
+		font-size: 13px;
+		font-weight: 700;
+		color: var(--live);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		user-select: all;
+	}
+	.share-actions {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 10px;
+	}
+	.primary,
+	.secondary {
+		height: 46px;
+		border-radius: 12px;
+		font: inherit;
+		font-size: 16px;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.primary {
+		border: 0;
+		background: var(--action);
+		color: var(--on-action);
+	}
+	.secondary {
+		border: 2px solid var(--ink);
+		background: var(--surface);
+		color: var(--ink);
+	}
+	.shared {
+		font-size: 14px;
+		color: var(--live);
+	}
+	.fine {
+		font-size: 13px;
+		color: var(--muted);
+		text-align: center;
+	}
+	.link {
+		justify-self: center;
+		padding: 4px;
+		border: 0;
+		background: none;
+		font: inherit;
+		font-size: 14px;
+		font-weight: 700;
+		color: var(--muted);
+		text-decoration: underline;
+		cursor: pointer;
 	}
 	.end {
 		justify-self: center;
@@ -649,6 +854,19 @@
 		}
 		.save {
 			font-size: 18px;
+		}
+		.share {
+			position: static;
+			gap: 14px;
+			padding: 23px;
+			border: 2px solid var(--ink);
+			border-radius: 16px;
+		}
+		.share-title {
+			font-size: 20px;
+		}
+		.fine {
+			text-align: left;
 		}
 	}
 </style>
