@@ -20,7 +20,7 @@
 	 *   yourStopId: string,
 	 *   destId?: string | null,
 	 *   bus: { loc: number[], stale: boolean } | null,
-	 *   here: number[],
+	 *   here: number[] | null,
 	 *   label: string,
 	 *   yourLabel?: string,
 	 *   destLabel?: string | null,
@@ -71,6 +71,8 @@
 			L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 				maxZoom: 19,
 				className: 'muted-tiles',
+				// set here, not in CSS: Leaflet writes the layer's opacity inline, which beats CSS
+				opacity: 0.5,
 				attribution:
 					'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 			}).addTo(map);
@@ -103,7 +105,7 @@
 			);
 		const your = stops.find((s) => s.id.toLowerCase() === yourStopId.toLowerCase());
 		const dest = destId ? stops.find((s) => s.id.toLowerCase() === destId.toLowerCase()) : null;
-		if (your)
+		if (your && here)
 			Lf.polyline([ll(here), ll(your.loc)], {
 				color: '#2261b4',
 				weight: 3,
@@ -217,12 +219,14 @@
 				title: 'Destination'
 			}).addTo(routeLayer);
 		}
-		Lf.marker(ll(here), {
-			icon: Lf.divIcon(img(youSvg, 40)),
-			interactive: false,
-			keyboard: false,
-			zIndexOffset: 400
-		}).addTo(routeLayer);
+		// no "you" on a shared ride: the viewer isn't the rider
+		if (here)
+			Lf.marker(ll(here), {
+				icon: Lf.divIcon(img(youSvg, 40)),
+				interactive: false,
+				keyboard: false,
+				zIndexOffset: 400
+			}).addTo(routeLayer);
 		if (!fitted && (trip.length > 1 || closure)) (recenter(), (fitted = true));
 	});
 
@@ -291,7 +295,7 @@
 		const extra = closure ? [closure.closed.loc, ...closure.road, ...stops.map((s) => s.loc)] : [];
 		const pts = [
 			...trip,
-			here,
+			...(here ? [here] : []),
 			...(bus?.loc ? [bus.loc] : []),
 			...(goal ? [goal] : []),
 			...extra
@@ -331,15 +335,13 @@
 		height: 100%;
 		background: var(--surface);
 	}
-	/* Muted basemap: gray tiles at half strength over white, so the route stands out */
+	/* Muted basemap: gray tiles at half strength (the layer's opacity option) over white */
 	.map :global(.muted-tiles) {
 		filter: grayscale(1);
-		opacity: 0.5;
 	}
 	/* night: the same tiles inverted to a dark map */
 	:global(:root[data-theme='night']) .map :global(.muted-tiles) {
 		filter: grayscale(1) invert(1) brightness(0.9);
-		opacity: 0.55;
 	}
 	.map :global(.map-ink) {
 		stroke: var(--map-ink);

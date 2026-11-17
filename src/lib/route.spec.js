@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { nearestIndex, pathBetween, pickVehicle, progressRows, tripProgress } from './route.js';
+import {
+	nearestIndex,
+	pathBetween,
+	pickVehicle,
+	progressRows,
+	rideStatus,
+	tripProgress
+} from './route.js';
 
 const now = Date.parse('2026-11-13T21:00:00Z');
 const at = (/** @type {number} */ min) => new Date(now + min * 60000).toISOString();
@@ -85,5 +92,34 @@ describe('route logic', () => {
 		]);
 		expect(tripProgress(onTheWay, loop, 'ada', 'ws')?.alertAt).toBe(null);
 		expect(tripProgress(onTheWay, loop, 'tr', 'nope')).toBe(null);
+	});
+
+	it('tells a friend where a shared ride stands', () => {
+		const loop = ['ws', 'pav', 'tr', 'sh', 'rs', 'ada'];
+		const riding = tripProgress(
+			[
+				{ stopId: 'rs', eta: at(1) },
+				{ stopId: 'ada', eta: at(3) }
+			],
+			loop,
+			'tr',
+			'ada'
+		);
+		const waiting = tripProgress(
+			[
+				{ stopId: 'tr', eta: at(2) },
+				{ stopId: 'ada', eta: at(8) }
+			],
+			loop,
+			'tr',
+			'ada'
+		);
+		const done = tripProgress([{ stopId: 'ws', eta: at(1) }], loop, 'tr', 'ada');
+		const until = now + 3600000;
+		expect(rideStatus(riding, now, until)).toBe('riding');
+		expect(rideStatus(waiting, now, until)).toBe('boarding');
+		expect(rideStatus(done, now, until)).toBe('arrived');
+		expect(rideStatus(null, now, until)).toBe('lost');
+		expect(rideStatus(riding, until + 1, until)).toBe('ended');
 	});
 });
