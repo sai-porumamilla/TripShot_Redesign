@@ -65,3 +65,37 @@ export function progressRows(next, stopId, toId) {
 		return { stopId: n.stopId, eta: n.eta, kind };
 	});
 }
+
+/**
+ * Progress of a ride on one bus from `boardId` to `destId`, for the on-board screen.
+ * `stopIds` is the route's loop order; a stop counts as passed once it's no longer among
+ * the bus's upcoming stops (up to its first arrival at the destination).
+ * @param {NextStop[]} next
+ * @param {string[]} stopIds
+ * @param {string} boardId
+ * @param {string} destId
+ * @returns {{ rows: { stopId: string, eta: string | null, passed: boolean }[],
+ *   left: number, total: number, arrived: boolean, alertAt: string | null } | null}
+ */
+export function tripProgress(next, stopIds, boardId, destId) {
+	const lc = (/** @type {string} */ s) => s.toLowerCase();
+	const ids = stopIds.map(lc);
+	const b = ids.indexOf(lc(boardId));
+	const d = ids.indexOf(lc(destId));
+	if (b < 0 || d < 0 || b === d) return null;
+	const count = (d - b + ids.length) % ids.length; // stops from board to dest, wrapping the loop
+	const upTo = next.findIndex((n) => lc(n.stopId) === lc(destId));
+	const ahead = new Map(next.slice(0, upTo + 1).map((n) => [lc(n.stopId), n.eta]));
+	const rows = Array.from({ length: count + 1 }, (_, i) => {
+		const id = stopIds[(b + i) % ids.length];
+		return { stopId: id, eta: ahead.get(lc(id)) ?? null, passed: !ahead.has(lc(id)) };
+	});
+	return {
+		rows,
+		left: rows.slice(1).filter((r) => !r.passed).length,
+		total: count,
+		arrived: upTo < 0,
+		// the stop before yours: the alert goes off once the bus gets there
+		alertAt: count > 1 ? rows[count - 1].stopId : null
+	};
+}

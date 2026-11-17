@@ -13,13 +13,14 @@
 
 	const NAV = /** @type {const} */ ([
 		{ label: 'Now', icon: 'clock', href: resolve('/') },
-		{ label: 'My trips', icon: 'bus', href: resolve('/search') },
+		{ label: 'My trips', icon: 'bus', href: resolve('/search'), also: resolve('/trip') },
 		{ label: 'Alerts', icon: 'bell', href: resolve('/alerts') },
 		{ label: 'Routes', icon: 'routes', href: resolve('/routes') }
 	]);
 	// pages are served with a trailing slash ('/search/'); resolve() returns '/search'
 	const strip = (/** @type {string} */ p) => p.replace(/\/$/, '');
-	const isActive = (/** @type {string} */ href) => strip(href) === strip(page.url.pathname);
+	const isActive = (/** @type {{ href: string, also?: string }} */ item) =>
+		[item.href, item.also].some((h) => h && strip(h) === strip(page.url.pathname));
 
 	let now = $state(new Date());
 	onMount(() => {
@@ -53,9 +54,9 @@
 					<li>
 						<a
 							class="item"
-							class:active={isActive(item.href)}
+							class:active={isActive(item)}
 							href={item.href}
-							aria-current={isActive(item.href) ? 'page' : undefined}
+							aria-current={isActive(item) ? 'page' : undefined}
 						>
 							<Icon name={item.icon} />{item.label}
 						</a>
@@ -75,9 +76,9 @@
 	<nav class="bottomnav" aria-label="Main">
 		{#each NAV as item (item.label)}
 			<a
-				class:active={isActive(item.href)}
+				class:active={isActive(item)}
 				href={item.href}
-				aria-current={isActive(item.href) ? 'page' : undefined}>{item.label}</a
+				aria-current={isActive(item) ? 'page' : undefined}>{item.label}</a
 			>
 		{/each}
 	</nav>

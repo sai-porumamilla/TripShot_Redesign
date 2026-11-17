@@ -95,6 +95,18 @@
 	const mins = (/** @type {number} */ t) => Math.max(0, Math.round((t - now) / 60000));
 	const from = $derived(here.real ? 'Your location' : `Current location (${here.name})`);
 	const home = $derived(dest?.kind === 'Dorm' || dest?.kind === 'Apartments');
+	const tail = (/** @type {{ walkFrom: number }} */ t) =>
+		`&place=${encodeURIComponent(dest?.name ?? '')}&after=${t.walkFrom}`;
+
+	// Trips saved from the on-board screen (this browser only), offered before you type
+	let saved = $state(/** @type {{ to: string }[]} */ ([]));
+	onMount(() => {
+		try {
+			saved = JSON.parse(localStorage.getItem('savedTrips') ?? '[]');
+		} catch {
+			// storage blocked: no saved trips
+		}
+	});
 </script>
 
 <svelte:head>
@@ -161,6 +173,21 @@
 <p class="phone from-line">From: {from}</p>
 
 {#if !dest}
+	{#if saved.length}
+		<h2 class="label saved-title">Saved trips</h2>
+		<ul class="saved">
+			{#each saved as t (t.to)}
+				<li>
+					<button
+						type="button"
+						onclick={() =>
+							choose(allPlaces.find((p) => p.name === t.to) ?? searchPlaces(allPlaces, t.to)[0])}
+						>★ {t.to}</button
+					>
+				</li>
+			{/each}
+		</ul>
+	{/if}
 	<p class="state">Type a building, dorm, or stop. We’ll compare the shuttle with walking.</p>
 {:else if !plan}
 	<p class="state">
@@ -205,7 +232,7 @@
 					<a
 						class="action"
 						href="{resolve('/route')}/?id={shuttle.route.id}&stop={shuttle.board.id}&to={shuttle
-							.alight.id}">View live route</a
+							.alight.id}{tail(shuttle)}">View live route</a
 					>
 				{/if}
 			</div>
@@ -237,7 +264,9 @@
 						<li>
 							<a
 								class="option"
-								href="{resolve('/route')}/?id={t.route.id}&stop={t.board.id}&to={t.alight.id}"
+								href="{resolve('/route')}/?id={t.route.id}&stop={t.board.id}&to={t.alight.id}{tail(
+									t
+								)}"
 							>
 								<span
 									><strong>{t.route.name}</strong><span
@@ -524,6 +553,23 @@
 	}
 	.option .time {
 		font-size: 16px;
+	}
+	.saved-title {
+		margin-top: 18px;
+	}
+	.saved {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 8px;
+	}
+	.saved button {
+		padding: 8px 14px;
+		border: 1px solid var(--line);
+		border-radius: 20px;
+		background: var(--surface);
+		font-weight: 700;
+		cursor: pointer;
 	}
 	.state {
 		margin-top: 16px;
