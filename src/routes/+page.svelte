@@ -159,7 +159,7 @@
 							href="{resolve('/route')}/?id={d.route.id}&stop={d.stop.id}{scenarioQuery}"
 							aria-label="{d.route.name} from {d.stop.name}, {d.minutes === 0
 								? 'arriving now'
-								: `${d.minutes} minutes`}. See the live route."
+								: `${d.live ? '' : 'about '}${d.minutes} minutes`}. See the live route."
 						>
 							<span
 								class="badge"
@@ -172,8 +172,10 @@
 								<p>{d.stop.name} · {d.walk} min walk</p>
 							</div>
 							<div class="eta">
-								<strong>{d.minutes === 0 ? 'Now' : `${d.minutes} min`}</strong>
-								<span class="live">• Live</span>
+								<strong>{d.minutes === 0 ? 'Now' : `${d.live ? '' : '~'}${d.minutes} min`}</strong>
+								<span class="live" class:est={!d.live}
+									>{d.live ? '• Live' : d.scheduled ? 'Scheduled' : 'Next lap'}</span
+								>
 							</div>
 							<span class="desktop chev"><Icon name="chevron" /></span>
 						</a>
@@ -371,6 +373,10 @@
 		line-height: 16px;
 		font-weight: 700;
 		color: var(--live);
+	}
+	/* an estimate (the bus's next time round), not a live arrival */
+	.live.est {
+		color: var(--muted);
 	}
 	.state {
 		margin-top: 8px;

@@ -9,6 +9,13 @@ export const LANGSAM = {
 /** Farthest stop we'll suggest walking to. */
 export const MAX_WALK_M = 800;
 
+/**
+ * Time differences smaller than this aren't worth extra walking: walking must beat the best
+ * shuttle by this much to be recommended, and among shuttles arriving within this much of the
+ * fastest, the one with the least walking is recommended. (Also used by trips.js.)
+ */
+export const WALK_MARGIN_MIN = 5;
+
 /** Great-circle distance in meters between two [lat, lng] points. */
 export function distanceM(
 	/** @type {number[]} */ [lat1, lng1],
@@ -19,6 +26,44 @@ export function distanceM(
 		Math.sin(((lat2 - lat1) * r) / 2) ** 2 +
 		Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin(((lng2 - lng1) * r) / 2) ** 2;
 	return 2 * 6371000 * Math.asin(Math.sqrt(a));
+}
+
+/**
+ * Minutes between buses on a route. TripShot gives a range [shortest, longest] in seconds;
+ * use the longest so we never promise a bus sooner than one may come. 0 when unknown.
+ */
+export const headwayMin = (/** @type {number | number[] | null | undefined} */ sec) =>
+	Math.max(0, ...[sec ?? 0].flat()) / 60;
+
+/**
+ * @typedef {{ stopId: string, eta: string }} Planned
+ * @typedef {{ headwaySec?: number | number[] | null, planned?: { next: Planned[] }[] }} Schedule
+ */
+
+/**
+ * When a bus next reaches `stopId` after a pass you can't catch (at `missed`, epoch ms).
+ * TripShot lists one lap of a bus's ride, so: its next lap, about a headway later, while its
+ * scheduled ride lasts (`until`); after that, the first ride scheduled later today (a shift
+ * change); null when neither is coming (the last bus of the day). Without schedule data from
+ * the proxy, just the headway guess.
+ * @param {Schedule} route
+ * @param {{ until?: string | null }} vehicle
+ * @param {string} stopId
+ * @param {number} missed
+ * @returns {{ at: number, kind: 'lap' | 'scheduled' } | null}
+ */
+export function nextPass(route, vehicle, stopId, missed) {
+	const headway = headwayMin(route.headwaySec);
+	const lap = headway ? missed + headway * 60000 : null;
+	const until = vehicle.until ? Date.parse(vehicle.until) : Infinity;
+	if (lap !== null && lap <= until) return { at: lap, kind: 'lap' };
+	const id = stopId.toLowerCase();
+	const [at] = (route.planned ?? [])
+		.flatMap((r) => r.next.filter((n) => n.stopId.toLowerCase() === id))
+		.map((n) => Date.parse(n.eta))
+		.filter((t) => t > missed)
+		.sort((a, b) => a - b);
+	return at ? { at, kind: 'scheduled' } : null;
 }
 
 // ponytail: straight-line distance × 1.2 street factor at 84 m/min (~1.4 m/s); swap in real walking routes if times feel off
@@ -81,10 +126,11 @@ export function nearbyStops(stops, here, max = MAX_WALK_M) {
 /**
  * The next bus you can actually catch on each route, soonest first.
  * A bus counts only if it reaches the stop no earlier than your walk there.
- * Pick the bus first (the one you can catch soonest), then the stop with the
- * shortest walk where you can still catch that same bus: walking farther to
- * board the same bus a few seconds earlier never helps.
- * @param {{ id: string, name: string, color: string, vehicles: { next: { stopId: string, eta: string }[] }[] }[]} routes
+ * TripShot gives one lap of times per bus, so a bus that will pass your stop before you can
+ * get there is also counted at its next pass (`nextPass`: its next lap, or the next scheduled
+ * ride), marked `live: false`. Among the boardings within WALK_MARGIN_MIN of the soonest, the
+ * shortest walk wins: chasing a bus to a farther stop to board a few minutes sooner isn't worth it.
+ * @param {(Schedule & { id: string, name: string, color: string, vehicles: { until?: string | null, next: { stopId: string, eta: string }[] }[] })[]} routes
  * @param {{ id: string, name: string, loc: number[] }[]} stops
  * @param {number[]} here
  * @param {number} now  epoch ms
@@ -93,30 +139,42 @@ export function departures(routes, stops, here, now) {
 	const near = new Map(nearbyStops(stops, here).map((s) => [s.stop.id.toLowerCase(), s]));
 	const out = [];
 	for (const route of routes) {
-		let best = null;
-		for (const v of route.vehicles) {
-			// every nearby stop where you can still catch this bus
-			const options = v.next.flatMap((n) => {
+		// every nearby stop where you can board this route, and when
+		const options = route.vehicles.flatMap((v) =>
+			v.next.flatMap((n) => {
 				const s = near.get(n.stopId.toLowerCase());
+				if (!s) return [];
 				const minutes = (Date.parse(n.eta) - now) / 60000;
-				return s && minutes >= s.walk - 0.5 ? [{ stop: s.stop, walk: s.walk, minutes }] : [];
-			});
-			if (!options.length) continue;
-			const soonest = Math.min(...options.map((o) => o.minutes));
-			if (best && soonest >= best.soonest) continue;
-			const pick = options.reduce((a, b) =>
-				b.walk < a.walk || (b.walk === a.walk && b.minutes < a.minutes) ? b : a
-			);
-			best = { ...pick, soonest };
-		}
-		if (best)
-			out.push({
-				route: { id: route.id, name: shortName(route.name), color: route.color },
-				stop: best.stop,
-				walk: best.walk,
-				minutes: Math.max(0, Math.round(best.minutes)),
-				live: true
-			});
+				if (minutes >= s.walk - 0.5)
+					return [{ stop: s.stop, walk: s.walk, minutes, live: true, scheduled: false }];
+				// too soon to walk there: count its next pass instead
+				const p = nextPass(route, v, n.stopId, Date.parse(n.eta));
+				return p
+					? [
+							{
+								stop: s.stop,
+								walk: s.walk,
+								minutes: (p.at - now) / 60000,
+								live: false,
+								scheduled: p.kind === 'scheduled'
+							}
+						]
+					: [];
+			})
+		);
+		if (!options.length) continue;
+		const soonest = Math.min(...options.map((o) => o.minutes));
+		const best = options
+			.filter((o) => o.minutes < soonest + WALK_MARGIN_MIN)
+			.reduce((a, b) => (b.walk < a.walk || (b.walk === a.walk && b.minutes < a.minutes) ? b : a));
+		out.push({
+			route: { id: route.id, name: shortName(route.name), color: route.color },
+			stop: best.stop,
+			walk: best.walk,
+			minutes: Math.max(0, Math.round(best.minutes)),
+			live: best.live,
+			scheduled: best.scheduled
+		});
 	}
 	return out.sort((a, b) => a.minutes - b.minutes);
 }

@@ -24,7 +24,7 @@ export function pathBetween(
 
 /**
  * @typedef {{ stopId: string, eta: string, status?: string | null }} NextStop
- * @typedef {{ name: string, loc: number[] | null, seen: string, next: NextStop[] }} Vehicle
+ * @typedef {{ name: string, loc: number[] | null, seen: string, until?: string | null, next: NextStop[] }} Vehicle
  */
 
 /**

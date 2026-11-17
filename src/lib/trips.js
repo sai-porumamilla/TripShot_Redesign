@@ -1,5 +1,7 @@
 // Pure logic for "search by destination": compare live shuttle trips with walking.
-import { distanceM, nearbyStops, shortName, walkMinutes } from './departures.js';
+import { distanceM, nearbyStops, shortName, walkMinutes, WALK_MARGIN_MIN } from './departures.js';
+
+export { WALK_MARGIN_MIN };
 
 /**
  * @typedef {{ id: string, name: string, loc: number[] }} Stop
@@ -9,13 +11,6 @@ import { distanceM, nearbyStops, shortName, walkMinutes } from './departures.js'
  * `change` is where you switch, and `alight`/`walkFrom`/`arriveAt` are the end of the trip.
  * @typedef {{ route: RouteRef, board: Stop, alight: Stop, walkTo: number, walkFrom: number, departAt: number, arriveAt: number, change?: Change }} Trip
  */
-
-/**
- * Time differences smaller than this aren't worth extra walking: walking must beat the best
- * shuttle by this much to be recommended, and among shuttles arriving within this much of the
- * fastest, the one with the least walking is recommended.
- */
-export const WALK_MARGIN_MIN = 5;
 
 /** A destination counts as "at the stop" (no final walk) within this distance. */
 const AT_STOP_M = 40;

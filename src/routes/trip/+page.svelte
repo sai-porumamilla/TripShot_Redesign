@@ -309,7 +309,8 @@
 					<p class="ends"><span>{board?.name}</span><span>{dest?.name}</span></p>
 
 					<ol class="rows desktop">
-						{#each prog.rows as r, i (r.stopId)}
+						<!-- keyed by position: a stop can repeat on some routes -->
+						{#each prog.rows as r, i (i)}
 							{@const last = i === prog.rows.length - 1}
 							<li class:passed={r.passed && i > 0} class:now={r === nextRow} class:first={i === 0}>
 								<div>

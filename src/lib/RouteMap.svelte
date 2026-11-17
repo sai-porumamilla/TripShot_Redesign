@@ -60,6 +60,7 @@
 	const still =
 		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 	let fitted = false;
+	let shown = false; // framed something at all (see below)
 
 	onMount(() => {
 		let cancelled = false;
@@ -257,7 +258,10 @@
 				keyboard: false,
 				zIndexOffset: 400
 			}).addTo(routeLayer);
-		if (!fitted && (trip.length > 1 || closure || change)) (recenter(), (fitted = true));
+		if (!fitted && (trip.length > 1 || closure || change))
+			(recenter(), (fitted = true), (shown = true));
+		// no trip line (yet, or at all): frame what there is instead of leaving the map blank
+		else if (!shown && path.length > 1) (recenter(), (shown = true));
 	});
 
 	// Bus: glide to each new position instead of jumping (jumps with reduced motion)
@@ -331,6 +335,8 @@
 			...(goal ? [goal] : []),
 			...extra
 		].map((p) => /** @type {[number, number]} */ ([p[0], p[1]]));
+		if (pts.length < 2)
+			pts.push(.../** @type {[number, number][]} */ (path.map((p) => [p[0], p[1]])));
 		if (pts.length) {
 			// small maps (trip previews) get proportionally less padding
 			const pad = Math.min(28, Math.round(el.clientHeight / 6));

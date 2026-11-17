@@ -1,7 +1,15 @@
 <script>
 	import RouteMap from '#lib/RouteMap.svelte';
 	import { getJSON } from '#lib/api.js';
-	import { distanceM, nearbyStops, shortName, textOn, walkMinutes } from '#lib/departures.js';
+	import {
+		distanceM,
+		headwayMin,
+		nearbyStops,
+		nextPass,
+		shortName,
+		textOn,
+		walkMinutes
+	} from '#lib/departures.js';
 	import { here, locate } from '#lib/here.svelte.js';
 	import { nearestIndex, pathBetween, pickVehicle, progressRows } from '#lib/route.js';
 	import { applyDelay, applyServiceChange, delayFrom, scenarioFrom } from '#lib/serviceChanges.js';
@@ -23,7 +31,9 @@
 		)
 	);
 	let detail = $state(
-		/** @type {{ name: string, color: string, stops: Stop[], path: number[][] } | null} */ (null)
+		/** @type {(import('#lib/departures.js').Schedule & { name: string, color: string, stops: Stop[], path: number[][] }) | null} */ (
+			null
+		)
 	);
 	let live = $state(/** @type {{ vehicles: import('#lib/route.js').Vehicle[] } | null} */ (null));
 	let failed = $state(false);
@@ -111,35 +121,67 @@
 	const walk = $derived(your ? walkMinutes(distanceM(here.loc, your.loc)) : 0);
 	// "Snooze 1 bus" skips the bus you were going to catch
 	let skipped = $state(/** @type {string[]} */ ([]));
+	const headway = $derived(headwayMin(detail?.headwaySec));
+
+	// Each bus's current pass of your stop, judged once, when first seen. A pass is "missed" if
+	// the bus was already too close to walk to (the same rule as Running now); the page then
+	// shows its next time round. Judging once means a bus you're walking to is never dropped as
+	// it gets close. `first` is the ETA first seen, for spotting delays; a jump of a whole lap is
+	// a new pass, not a delay.
+	const passes = $state(
+		/** @type {Record<string, { first: number, eta: number, walk: number, missed: boolean }>} */ ({})
+	);
+	const newPassMs = $derived(Math.max(8, 0.6 * headway) * 60000);
+	$effect(() => {
+		if (!your) return;
+		for (const v of vehicles) {
+			const at = pickVehicle([v], your.id, now)?.at.eta;
+			if (!at) continue;
+			const t = Date.parse(at);
+			const p = passes[v.name];
+			if (p && p.walk === walk && Math.abs(t - p.eta) < newPassMs) p.eta = t;
+			else passes[v.name] = { first: t, eta: t, walk, missed: t - now < (walk - 0.5) * 60000 };
+		}
+	});
+	const missed = (/** @type {{ name: string }} */ v) => !!passes[v.name]?.missed;
+	const ours = $derived(vehicles.filter((v) => !skipped.includes(v.name)));
+	// the bus you can catch; without a headway to estimate from, fall back to the next one at all
 	const pick = $derived(
 		live && your
-			? pickVehicle(
-					vehicles.filter((v) => !skipped.includes(v.name)),
+			? (pickVehicle(
+					ours.filter((v) => !missed(v)),
 					your.id,
 					now
-				)
+				) ?? (headway ? null : pickVehicle(ours, your.id, now)))
 			: null
 	);
-	const eta = $derived(pick ? Date.parse(pick.at.eta) : null);
+	// only buses too close to catch: when the next one comes (its next lap, the next scheduled
+	// ride, or none today; see nextPass)
+	const passing = $derived(
+		!pick && live && your && headway ? pickVehicle(ours.filter(missed), your.id, now) : null
+	);
+	const next = $derived(
+		passing && detail && your
+			? nextPass(detail, passing.vehicle, your.id, Date.parse(passing.at.eta))
+			: null
+	);
+	const estimated = $derived(!!next);
+	const lastToday = $derived(!!passing && !next);
+	const eta = $derived(pick ? Date.parse(pick.at.eta) : (next?.at ?? null));
 	const minutes = $derived(eta === null ? null : Math.max(0, Math.round((eta - now) / 60000)));
+	const vehicle = $derived(pick?.vehicle ?? passing?.vehicle ?? null); // the bus on the map
 	const rows = $derived(
 		pick && your ? progressRows(pick.vehicle.next, your.id, dest?.id ?? null) : []
 	);
 	const seenAgo = $derived(
-		pick ? Math.max(0, Math.round((now - Date.parse(pick.vehicle.seen)) / 1000)) : null
+		vehicle ? Math.max(0, Math.round((now - Date.parse(vehicle.seen)) / 1000)) : null
 	);
 	const stale = $derived(seenAgo !== null && seenAgo > 90);
 
-	// Delay: the ETA has slipped 3+ min past the first one we saw for this bus at your stop.
+	// Delay: the ETA has slipped 3+ min past the first one we saw for this pass of your stop.
 	// (TripShot's own "Delayed" flag is set on nearly every bus, so it isn't used.)
-	const firstEta = $state(/** @type {Record<string, number>} */ ({}));
-	const etaKey = $derived(pick && your ? `${pick.vehicle.name}@${your.id}` : '');
-	$effect(() => {
-		if (etaKey && eta !== null && !(etaKey in firstEta)) firstEta[etaKey] = eta;
-	});
-	const slip = $derived(
-		eta !== null && etaKey in firstEta ? Math.round((eta - firstEta[etaKey]) / 60000) : 0
-	);
+	const pass = $derived(pick ? passes[pick.vehicle.name] : undefined);
+	const slip = $derived(eta !== null && pass ? Math.round((eta - pass.first) / 60000) : 0);
 	const late = $derived(slip >= 3);
 	let keptAlert = $state(false);
 
@@ -151,12 +193,16 @@
 	);
 	const headline = $derived(
 		minutes === null
-			? live
-				? 'No bus on the way'
-				: 'Finding your bus…'
-			: minutes === 0
-				? 'Arriving now'
-				: `Arriving in ${minutes} min`
+			? lastToday
+				? `No more ${name} today`
+				: live
+					? 'No bus on the way'
+					: 'Finding your bus…'
+			: estimated
+				? `Next one in ~${minutes} min`
+				: minutes === 0
+					? 'Arriving now'
+					: `Arriving in ${minutes} min`
 	);
 	const fresh = $derived(
 		seenAgo === null
@@ -168,16 +214,16 @@
 
 	// The solid part of the line: bus → your stop → destination (or the last listed stop)
 	const trip = $derived.by(() => {
-		const end = dest ?? (rows.length ? stopOf(rows[rows.length - 1].stopId) : undefined);
-		if (!detail?.path.length || !pick?.vehicle.loc || !end) return [];
+		const end = dest ?? (rows.length ? stopOf(rows[rows.length - 1].stopId) : your);
+		if (!detail?.path.length || !vehicle?.loc || !end) return [];
 		return pathBetween(
 			detail.path,
-			nearestIndex(detail.path, pick.vehicle.loc),
+			nearestIndex(detail.path, vehicle.loc),
 			nearestIndex(detail.path, end.loc)
 		);
 	});
-	const bus = $derived(pick?.vehicle.loc ? { loc: pick.vehicle.loc, stale } : null);
-	const busNext = $derived(pick ? stopOf(pick.vehicle.next[0]?.stopId ?? '')?.name : undefined);
+	const bus = $derived(vehicle?.loc ? { loc: vehicle.loc, stale } : null);
+	const busNext = $derived(vehicle ? stopOf(vehicle.next[0]?.stopId ?? '')?.name : undefined);
 
 	const clock = (/** @type {number} */ t) =>
 		new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -255,7 +301,7 @@
 	const later = $derived(
 		pick && your
 			? pickVehicle(
-					vehicles.filter((v) => v !== pick.vehicle && !skipped.includes(v.name)),
+					ours.filter((v) => v !== pick.vehicle && !missed(v)),
 					your.id,
 					now
 				)
@@ -310,7 +356,17 @@
 			{#if fresh}
 				<div class="pills">
 					<span class="pill" class:stale>{fresh}</span>
-					<span class="pill" class:late>{late ? `Delayed ${slip} min` : 'On time'}</span>
+					<span class="pill" class:late
+						>{next
+							? next.kind === 'scheduled'
+								? 'Scheduled'
+								: 'Next lap'
+							: lastToday
+								? 'Last one gone'
+								: late
+									? `Delayed ${slip} min`
+									: 'On time'}</span
+					>
 				</div>
 			{/if}
 		</header>
@@ -431,7 +487,8 @@
 					{/if}
 					{#if rows.length}
 						<ol class="rows">
-							{#each rows as r (r.stopId)}
+							<!-- keyed by position: a stop can repeat (Uptown Express passes Transit Row more than once a lap) -->
+							{#each rows as r, i (i)}
 								<li class={r.kind}>
 									<span class="dot desktop"></span>
 									<div class="stop">
@@ -448,9 +505,17 @@
 						</ol>
 					{:else}
 						<p class="state">
-							{live
-								? `No ${name || 'bus'} is heading to ${your?.name ?? 'your stop'} right now.`
-								: 'Loading live arrivals…'}
+							{passing
+								? `This ${name} gets to ${your?.name} before your ${walk} min walk would. ${
+										!next
+											? `It’s the last one today.`
+											: next.kind === 'scheduled'
+												? `The next one is scheduled for ${clock(next.at)}.`
+												: `It comes back round in about ${minutes} min.`
+									}`
+								: live
+									? `No ${name || 'bus'} is heading to ${your?.name ?? 'your stop'} right now.`
+									: 'Loading live arrivals…'}
 						</p>
 					{/if}
 				</div>
