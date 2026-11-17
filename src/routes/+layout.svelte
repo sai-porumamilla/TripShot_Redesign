@@ -4,6 +4,7 @@
 	import logoArrow from '#lib/assets/icons/logo-arrow.svg';
 	import Icon from '#lib/Icon.svelte';
 	import { here } from '#lib/here.svelte.js';
+	import { day, loadDay } from '#lib/myDay.svelte.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
@@ -24,8 +25,21 @@
 
 	let now = $state(new Date());
 	onMount(() => {
-		const t = setInterval(() => (now = new Date()), 15000);
+		loadDay();
+		const t = setInterval(() => (now = new Date()), 5000);
 		return () => clearInterval(t);
+	});
+
+	// A "Remind me" from the next-class card goes off here, so it works on any page
+	let reminder = $state(/** @type {{ title: string, body: string } | null} */ (null));
+	$effect(() => {
+		const r = day.reminder;
+		if (!r || now.getTime() < r.at) return;
+		day.reminder = null;
+		reminder = r;
+		navigator.vibrate?.([300, 150, 300]);
+		if ('Notification' in window && Notification.permission === 'granted')
+			new Notification(r.title, { body: r.body });
 	});
 	const time = $derived(now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
 </script>
@@ -70,7 +84,15 @@
 			</div>
 		</nav>
 
-		<main>{@render children()}</main>
+		<main>
+			{#if reminder}
+				<p class="reminder" role="alert">
+					<span><strong>{reminder.title}.</strong> {reminder.body}</span>
+					<button onclick={() => (reminder = null)}>OK</button>
+				</p>
+			{/if}
+			{@render children()}
+		</main>
 	</div>
 
 	<nav class="bottomnav" aria-label="Main">
@@ -94,6 +116,29 @@
 		padding: 28px 18px 72px;
 		max-width: 560px;
 		margin: 0 auto;
+	}
+	.reminder {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		margin-bottom: 16px;
+		padding: 12px 14px;
+		border-radius: 12px;
+		background: var(--ink);
+		color: var(--surface);
+		font-size: 15px;
+	}
+	.reminder button {
+		flex: none;
+		padding: 6px 14px;
+		border: 0;
+		border-radius: 8px;
+		background: var(--action);
+		color: var(--on-action);
+		font-weight: 700;
+		cursor: pointer;
+		box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.4);
 	}
 	.bottomnav {
 		position: fixed;
