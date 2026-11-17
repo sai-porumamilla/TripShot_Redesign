@@ -104,13 +104,17 @@ export function tripProgress(next, stopIds, boardId, destId) {
  * Where a shared ride stands, for the friend's view (`/ride/`): `ended` once the link has
  * expired, `arrived` when the bus has passed the destination, `boarding` while it hasn't
  * reached the boarding stop yet, otherwise `riding`. `lost` when the bus isn't reporting.
+ * `rode`: the bus was already seen past the boarding stop. On a loop it comes round again,
+ * so seeing the boarding stop ahead after that means it has passed the destination.
  * @param {ReturnType<typeof tripProgress>} prog
  * @param {number} now
  * @param {number} until
+ * @param {boolean} [rode]
  */
-export function rideStatus(prog, now, until) {
+export function rideStatus(prog, now, until, rode = false) {
 	if (now > until) return 'ended';
 	if (!prog) return 'lost';
 	if (prog.arrived) return 'arrived';
-	return prog.rows[0].passed ? 'riding' : 'boarding';
+	if (prog.rows[0].passed) return 'riding';
+	return rode ? 'arrived' : 'boarding';
 }

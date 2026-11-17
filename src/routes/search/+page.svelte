@@ -78,18 +78,50 @@
 	/** @type {Record<string, number[][]>} */
 	const paths = $state({});
 	$effect(() => {
-		const id = shuttle?.route.id;
-		if (id && !paths[id])
-			getJSON(`/routes/${id}`).then(
-				(d) => (paths[id] = d.path),
-				() => {}
-			);
+		for (const id of [shuttle?.route.id, shuttle?.change?.route.id])
+			if (id && !paths[id])
+				getJSON(`/routes/${id}`).then(
+					(d) => (paths[id] = d.path),
+					() => {}
+				);
 	});
-	const ride = $derived.by(() => {
-		const p = shuttle && paths[shuttle.route.id];
-		if (!p?.length || !shuttle) return [];
-		return pathBetween(p, nearestIndex(p, shuttle.board.loc), nearestIndex(p, shuttle.alight.loc));
-	});
+	const segment = (
+		/** @type {string} */ id,
+		/** @type {number[]} */ a,
+		/** @type {number[]} */ b
+	) => {
+		const p = paths[id];
+		return p?.length ? pathBetween(p, nearestIndex(p, a), nearestIndex(p, b)) : [];
+	};
+	// the line for the recommended ride; with a change, the first shuttle's part, then the second's
+	const ride = $derived(
+		shuttle
+			? segment(shuttle.route.id, shuttle.board.loc, (shuttle.change?.at ?? shuttle.alight).loc)
+			: []
+	);
+	const ride2 = $derived(
+		shuttle?.change
+			? segment(shuttle.change.route.id, shuttle.change.board.loc, shuttle.alight.loc)
+			: []
+	);
+	const changeMap = $derived(
+		shuttle?.change
+			? {
+					color: shuttle.change.route.color,
+					trip: ride2,
+					at: shuttle.change.at,
+					label: `Change · ${shuttle.change.at.name}`
+				}
+			: null
+	);
+	/** The live route link: the first shuttle, and for a change, the second one to follow up with. */
+	const routeLink = (/** @type {import('#lib/trips.js').Trip} */ t) =>
+		`${resolve('/route')}/?id=${t.route.id}&stop=${t.board.id}&to=${(t.change?.at ?? t.alight).id}${tail(t)}` +
+		(t.change
+			? `&then=${t.change.route.id}&thenStop=${t.change.board.id}&thenTo=${t.alight.id}`
+			: '');
+	const wait = (/** @type {import('#lib/trips.js').Trip} */ t) =>
+		t.change ? Math.round((t.change.departAt - t.change.arriveAt) / 60000) : 0;
 
 	const clock = (/** @type {number} */ t) =>
 		new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
@@ -193,7 +225,14 @@
 	<div class="columns">
 		<section aria-labelledby="best-title">
 			<h2 id="best-title" class="phone label">Best way right now</h2>
-			<div class="best" style:--route={walkWins ? 'var(--line)' : shuttle?.route.color}>
+			<div
+				class="best"
+				style:--route={walkWins
+					? 'var(--line)'
+					: shuttle?.change
+						? `linear-gradient(${shuttle.route.color} 50%, ${shuttle.change.route.color} 50%)`
+						: shuttle?.route.color}
+			>
 				<p class="desktop label">Best way right now</p>
 				{#if walkWins || !shuttle}
 					<div class="best-head">
@@ -217,19 +256,40 @@
 							style:background={shuttle.route.color}
 							style:color={textOn(shuttle.route.color)}>{shuttle.route.name}</span
 						>
+						{#if shuttle.change}
+							<span class="arr" aria-hidden="true">→</span>
+							{#if shuttle.change.walk}<span class="chip">Walk {shuttle.change.walk} min</span><span
+									class="arr"
+									aria-hidden="true">→</span
+								>{/if}
+							<span
+								class="chip route"
+								style:background={shuttle.change.route.color}
+								style:color={textOn(shuttle.change.route.color)}>{shuttle.change.route.name}</span
+							>
+						{/if}
 						{#if shuttle.walkFrom}<span class="arr" aria-hidden="true">→</span><span class="chip"
 								>Walk {shuttle.walkFrom} min</span
 							>{/if}
 					</p>
-					<p class="lead">
-						Board at <strong>{shuttle.board.name}</strong> in {mins(shuttle.departAt)} min.
-					</p>
+					{#if shuttle.change}
+						<p class="lead">
+							Board {shuttle.route.name} at <strong>{shuttle.board.name}</strong> in {mins(
+								shuttle.departAt
+							)} min. Change to {shuttle.change.route.name} at
+							<strong>{shuttle.change.at.name}</strong>
+							({shuttle.change.walk
+								? `walk ${shuttle.change.walk} min to ${shuttle.change.board.name}, `
+								: ''}{wait(shuttle)} min wait).
+						</p>
+					{:else}
+						<p class="lead">
+							Board at <strong>{shuttle.board.name}</strong> in {mins(shuttle.departAt)} min.
+						</p>
+					{/if}
 					<p class="sub">Get off at <strong>{shuttle.alight.name}</strong>.</p>
-					<a
-						class="action"
-						href="{resolve('/route')}/?id={shuttle.route.id}&stop={shuttle.board.id}&to={shuttle
-							.alight.id}{tail(shuttle)}">View live route</a
-					>
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- routeLink() builds on resolve('/route') -->
+					<a class="action" href={routeLink(shuttle)}>View live route</a>
 				{/if}
 			</div>
 
@@ -247,8 +307,11 @@
 						goal={dest.loc}
 						bus={null}
 						here={here.loc}
-						label="Trip preview: walk to {shuttle.board.name}, ride {shuttle.route.name} to {shuttle
-							.alight.name}, then walk to {dest.name}."
+						change={changeMap}
+						label="Trip preview: walk to {shuttle.board.name}, ride {shuttle.route
+							.name}{shuttle.change
+							? `, change to ${shuttle.change.route.name} at ${shuttle.change.at.name}`
+							: ''} to {shuttle.alight.name}, then walk to {dest.name}."
 					/>
 				</div>
 			{/if}
@@ -256,17 +319,15 @@
 			{#if others.length || !walkWins}
 				<h2 class="label others-title">Other options</h2>
 				<ul class="others">
-					{#each others as t (t.route.id)}
+					{#each others as t (`${t.route.id}>${t.change?.route.id ?? ''}`)}
 						<li>
-							<a
-								class="option"
-								href="{resolve('/route')}/?id={t.route.id}&stop={t.board.id}&to={t.alight.id}{tail(
-									t
-								)}"
-							>
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- routeLink() builds on resolve('/route') -->
+							<a class="option" href={routeLink(t)}>
 								<span
-									><strong>{t.route.name}</strong><span
-										>From {t.board.name} · {t.walkTo} min walk</span
+									><strong>{t.route.name}{t.change ? ` → ${t.change.route.name}` : ''}</strong><span
+										>{t.change
+											? `Change at ${t.change.at.name} · ${t.walkTo} min walk`
+											: `From ${t.board.name} · ${t.walkTo} min walk`}</span
 									></span
 								>
 								<strong class="time">~{clock(t.arriveAt)}</strong>
@@ -305,8 +366,11 @@
 						goal={dest.loc}
 						bus={null}
 						here={here.loc}
-						label="Trip preview: walk to {shuttle.board.name}, ride {shuttle.route.name} to {shuttle
-							.alight.name}, then walk to {dest.name}."
+						change={changeMap}
+						label="Trip preview: walk to {shuttle.board.name}, ride {shuttle.route
+							.name}{shuttle.change
+							? `, change to ${shuttle.change.route.name} at ${shuttle.change.at.name}`
+							: ''} to {shuttle.alight.name}, then walk to {dest.name}."
 					/>
 				</div>
 				<ol class="timeline">
@@ -320,6 +384,15 @@
 							>Walk {shuttle.walkTo} min · board {shuttle.route.name}</span
 						>
 					</li>
+					{#if shuttle.change}
+						<li class="board change" style:--change={shuttle.change.route.color}>
+							<strong>{shuttle.change.at.name}</strong><span
+								>Change to {shuttle.change.route.name}{shuttle.change.walk
+									? ` at ${shuttle.change.board.name} (${shuttle.change.walk} min walk)`
+									: ''} · {wait(shuttle)} min wait</span
+							>
+						</li>
+					{/if}
 					<li>
 						<strong>{shuttle.alight.name}</strong><span
 							>Get off · arrive ~{clock(shuttle.arriveAt - shuttle.walkFrom * 60000)}</span
@@ -779,6 +852,10 @@
 		}
 		.timeline li.board::before {
 			background: var(--accent);
+		}
+		.timeline li.change::before {
+			background: var(--change);
+			border-color: var(--change);
 		}
 		.timeline strong {
 			font-size: 18px;

@@ -225,7 +225,12 @@
 										class="chip"
 										style:background={p.trip.route.color}
 										style:color={textOn(p.trip.route.color)}>{p.trip.route.name}</span
-									>
+									>{#if p.trip.change}<span
+											class="chip"
+											style:background={p.trip.change.route.color}
+											style:color={textOn(p.trip.change.route.color)}
+											>then {p.trip.change.route.name}</span
+										>{/if}
 								</p>
 							{:else if p?.kind === 'walk'}
 								<p class="plan">

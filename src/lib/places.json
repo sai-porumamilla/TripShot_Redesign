@@ -450,6 +450,11 @@
 		"kind": "Garage"
 	},
 	{
+		"name": "University Edge",
+		"loc": [39.13972, -84.51179],
+		"kind": "Apartments"
+	},
+	{
 		"name": "University Hall",
 		"loc": [39.13658, -84.50847],
 		"kind": "Building"

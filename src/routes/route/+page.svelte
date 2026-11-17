@@ -6,6 +6,7 @@
 	import { nearestIndex, pathBetween, pickVehicle, progressRows } from '#lib/route.js';
 	import { applyDelay, applyServiceChange, delayFrom, scenarioFrom } from '#lib/serviceChanges.js';
 	import { planTrips } from '#lib/trips.js';
+	import { connection } from '#lib/connection.svelte.js';
 	import places from '#lib/places.json';
 	import backWhite from '#lib/assets/icons/back-white.svg';
 	import busWhite from '#lib/assets/icons/bus-white.svg';
@@ -34,6 +35,7 @@
 	);
 	let delayOn = $state(false);
 	let noReplay = $state(''); // this page's query without the delay replay
+	let conn = $state(/** @type {ReturnType<typeof connection>} */ (null)); // second shuttle, if any
 
 	onMount(() => {
 		// read the query in the browser: the page is prerendered without one
@@ -44,6 +46,7 @@
 		noReplay = `?${new URLSearchParams([...q].filter(([k]) => k !== 'delay'))}`;
 		// the replayed delay hits a few seconds in, so you see the ETA change like it would live
 		const hit = delayReplay && setTimeout(() => (delayOn = true), 8000);
+		conn = connection(Object.fromEntries(q));
 		const id = q.get('id');
 		if (!id) return void (failed = true);
 		params = {
@@ -66,7 +69,12 @@
 		load();
 		const poll = setInterval(load, 10000);
 		const tick = setInterval(() => (now = Date.now()), 1000);
-		return () => (clearInterval(poll), clearInterval(tick), hit && clearTimeout(hit));
+		return () => (
+			clearInterval(poll),
+			clearInterval(tick),
+			hit && clearTimeout(hit),
+			conn?.dispose()
+		);
 	});
 
 	// Apply an active service change: the closed stop is replaced by the temporary one
@@ -90,6 +98,16 @@
 			: undefined
 	);
 	const dest = $derived(params?.to ? stopOf(params.to) : undefined);
+	// two shuttles: when this bus reaches the change stop, and the next one you can catch there
+	const changeAt = $derived.by(() => {
+		const d = dest;
+		const n =
+			conn && d
+				? pick?.vehicle.next.find((s) => s.stopId.toLowerCase() === d.id.toLowerCase())
+				: null;
+		return n ? Date.parse(n.eta) : null;
+	});
+	const connNext = $derived(conn && changeAt !== null ? conn.next(changeAt) : null);
 	const walk = $derived(your ? walkMinutes(distanceM(here.loc, your.loc)) : 0);
 	// "Snooze 1 bus" skips the bus you were going to catch
 	let skipped = $state(/** @type {string[]} */ ([]));
@@ -296,6 +314,18 @@
 				</div>
 			{/if}
 		</header>
+
+		{#if conn?.name}
+			<p class="then" style:--then={conn.color}>
+				<span>
+					Then change to <strong>{conn.name}</strong> at {dest?.name ?? 'your stop'}{connNext
+						? ` · next one ~${clock(connNext)}`
+						: ''}
+				</span>
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- connection() builds on resolve('/route') -->
+				<a href={conn.href}>See {conn.name} live</a>
+			</p>
+		{/if}
 
 		{#if delayReplay}
 			<p class="replay">
@@ -564,6 +594,25 @@
 	}
 	.pill.late {
 		color: var(--alert);
+	}
+	/* two shuttles: where to change, under the header */
+	.then {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px 12px;
+		margin: 12px 18px 0;
+		padding: 12px 14px;
+		border-left: 6px solid var(--then);
+		border-radius: 12px;
+		background: var(--surface);
+		font-size: 15px;
+		line-height: 20px;
+	}
+	.then a {
+		font-weight: 700;
+		color: var(--ink);
 	}
 	.replay {
 		margin: 8px 18px 0;
@@ -940,6 +989,14 @@
 		}
 		.replay {
 			margin: 10px 0 0;
+		}
+		.then {
+			margin: 16px 0 0;
+			padding: 16px 20px;
+			border: 1px solid var(--line);
+			border-left: 6px solid var(--then);
+			border-radius: 16px;
+			font-size: 17px;
 		}
 		.leave {
 			margin: 16px 0 0;
