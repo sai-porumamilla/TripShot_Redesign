@@ -6,6 +6,7 @@
 	import { getJSON } from '#lib/api.js';
 	import { shortName, textOn } from '#lib/departures.js';
 	import { nearestIndex, pathBetween, rideStatus, tripProgress } from '#lib/route.js';
+	import { recalled, remember } from '#lib/rode.js';
 	import { applyServiceChange, scenarioFrom } from '#lib/serviceChanges.js';
 	import { onMount } from 'svelte';
 
@@ -24,6 +25,7 @@
 		q = Object.fromEntries(new URLSearchParams(location.search));
 		change = scenarioFrom(location.search);
 		if (!q.id || !q.bus || !q.stop || !q.to) return void (failed = true);
+		rode = recalled(q);
 		getJSON(`/routes/${q.id}`).then(
 			(d) => (detail = d),
 			() => (failed = true)
@@ -65,7 +67,7 @@
 	const until = $derived(Number(q?.until) || Infinity);
 	let rode = $state(false); // seen past the boarding stop (see rideStatus)
 	$effect(() => {
-		if (prog?.rows[0].passed) rode = true;
+		if (prog?.rows[0].passed && !rode && q) ((rode = true), remember(q, destEta));
 	});
 	const status = $derived(live && detail ? rideStatus(prog, now, until, rode) : null);
 	const nextRow = $derived(prog?.rows.find((r, i) => i > 0 && !r.passed));

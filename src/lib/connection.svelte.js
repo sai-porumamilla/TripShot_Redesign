@@ -12,6 +12,7 @@ import { resolve } from '$app/paths';
  *   href: string,
  *   readonly name: string,
  *   readonly color: string | null,
+ *   readonly checked: boolean,
  *   next: (arriveAt: number) => number | null,
  *   dispose: () => void
  * }}
@@ -21,7 +22,8 @@ export function connection(q) {
 	if (!id || !stop || !to) return null;
 	const s = $state({
 		/** @type {{ name: string, color: string } | null} */ route: null,
-		/** @type {{ vehicles: import('./route.js').Vehicle[] } | null} */ live: null
+		/** @type {{ vehicles: import('./route.js').Vehicle[] } | null} */ live: null,
+		checked: false // a live check came back (or failed), so "none found" means none reporting
 	});
 	getJSON(`/routes/${id}`).then(
 		(d) => (s.route = d),
@@ -29,8 +31,8 @@ export function connection(q) {
 	);
 	const load = () =>
 		getJSON(`/routes/${id}/live`).then(
-			(d) => (s.live = d),
-			() => {}
+			(d) => ((s.live = d), (s.checked = true)),
+			() => (s.checked = true)
 		);
 	load();
 	const poll = setInterval(load, 20000);
@@ -45,6 +47,9 @@ export function connection(q) {
 		},
 		get color() {
 			return s.route?.color ?? null;
+		},
+		get checked() {
+			return s.checked;
 		},
 		/** When the next one leaves the change stop, at least a minute after you get there. */
 		next: (arriveAt) => {

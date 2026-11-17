@@ -320,7 +320,9 @@
 				<span>
 					Then change to <strong>{conn.name}</strong> at {dest?.name ?? 'your stop'}{connNext
 						? ` · next one ~${clock(connNext)}`
-						: ''}
+						: conn.checked
+							? ` · none reporting right now`
+							: ''}
 				</span>
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- connection() builds on resolve('/route') -->
 				<a href={conn.href}>See {conn.name} live</a>
