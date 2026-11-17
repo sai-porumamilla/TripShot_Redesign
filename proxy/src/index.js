@@ -162,6 +162,18 @@ async function routeDetail(env, id) {
 		name: r.route.publicName ?? r.route.name,
 		color: r.route.color,
 		headwaySec: tt?.headwayRangeSec ?? null,
+		// rides scheduled later today (e.g. the 2–10 PM shift), with their first lap's stop times.
+		// Times only: their driver, shift, vehicle and history fields are dropped on purpose.
+		planned: (tt?.nonliveRides ?? []).map((/** @type {any} */ x) => ({
+			start: x.scheduledStart ?? null,
+			end: x.scheduledEnd ?? null,
+			next: x.stopStatus
+				.filter((/** @type {any} */ s) => s.Awaiting)
+				.map((/** @type {any} */ { Awaiting: a }) => ({
+					stopId: a.stopId,
+					eta: a.expectedArrivalTime
+				}))
+		})),
 		stops: (tt?.stops ?? []).map((/** @type {any} */ s) => ({
 			id: s.stopId,
 			name: s.name,
@@ -191,6 +203,8 @@ async function live(env, id) {
 			seen: vs.when,
 			capacity: vehicle.capacity,
 			occupancy: vs.apcOccupancy ?? null,
+			// when this bus's scheduled ride ends (a shift change, or the end of service)
+			until: ride.scheduledEnd ?? null,
 			next: ride.stopStatus
 				.filter((/** @type {any} */ s) => s.Awaiting)
 				.map((/** @type {any} */ { Awaiting: a }) => ({
@@ -222,6 +236,7 @@ async function liveAll(env) {
 				name: r.name,
 				color: r.color,
 				headwaySec: d.headwaySec,
+				planned: d.planned,
 				stopIds: d.stops.map((/** @type {{ id: string }} */ s) => s.id.toLowerCase()),
 				vehicles: l.vehicles
 			};

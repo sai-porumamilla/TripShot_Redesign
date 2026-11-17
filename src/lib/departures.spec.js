@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
 	departures,
 	nearbyStops,
+	nextPass,
 	routeAbbrev,
 	textOn,
 	walkMinutes,
@@ -35,6 +36,60 @@ describe('departures', () => {
 		];
 		const [d] = departures(routes, stops, LANGSAM.loc, now);
 		expect([d.stop.name, d.walk, d.minutes]).toEqual(['Transit Row', 2, 9]);
+	});
+
+	it('waits for the next lap at the nearest stop instead of chasing the bus to a farther one', () => {
+		// regression: the only bus passes Transit Row (2 min walk) in 30 s, then reaches Main Gate
+		// (6 min walk) at 10 min. Its next lap reaches Transit Row ~13 min later: within 5 min of
+		// Main Gate, so wait at the closer stop (an estimate, not a live time).
+		const route = (/** @type {number} */ gate) => ({
+			id: 'ne',
+			name: 'Northeast',
+			color: '#228124',
+			headwaySec: [720, 780], // TripShot's range: the estimate uses the longest
+			vehicles: [
+				{
+					next: [
+						{ stopId: 'A', eta: at(0.5) },
+						{ stopId: 'B', eta: at(gate) }
+					]
+				}
+			]
+		});
+		const [d] = departures([route(10)], stops, LANGSAM.loc, now);
+		expect([d.stop.name, d.walk, d.minutes, d.live]).toEqual(['Transit Row', 2, 14, false]);
+		// but when the farther stop gets you on 5+ min sooner, it's worth the walk
+		const [far] = departures([route(7)], stops, LANGSAM.loc, now);
+		expect([far.stop.name, far.minutes, far.live]).toEqual(['University Main Gate', 7, true]);
+	});
+
+	it('knows when the next bus comes: next lap, the next scheduled ride, or none today', () => {
+		const ride = { headwaySec: [780, 780], planned: [{ next: [{ stopId: 'A', eta: at(64) }] }] };
+		const missed = now + 0.5 * 60000;
+		// its ride runs past the next lap: the bus comes back round
+		expect(nextPass(ride, { until: at(60) }, 'a', missed)).toEqual({
+			at: missed + 780000,
+			kind: 'lap'
+		});
+		// its ride ends first (a shift change): the next ride's scheduled time
+		expect(nextPass(ride, { until: at(5) }, 'A', missed)).toEqual({
+			at: now + 64 * 60000,
+			kind: 'scheduled'
+		});
+		// nothing later today: none
+		expect(nextPass({ ...ride, planned: [] }, { until: at(5) }, 'A', missed)).toBe(null);
+		// no schedule data from the proxy: just the headway guess
+		expect(nextPass({ headwaySec: 780 }, {}, 'A', missed)?.kind).toBe('lap');
+		// Running now leaves the route out when the last bus of the day is too close to catch
+		const last = {
+			id: 'ne',
+			name: 'Northeast',
+			color: '#228124',
+			headwaySec: 780,
+			planned: [],
+			vehicles: [{ until: at(5), next: [{ stopId: 'A', eta: at(0.5) }] }]
+		};
+		expect(departures([last], stops, LANGSAM.loc, now)).toEqual([]);
 	});
 
 	it('still prefers a sooner bus over a later one at a closer stop', () => {
