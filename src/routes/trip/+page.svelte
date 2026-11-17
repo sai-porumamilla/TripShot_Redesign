@@ -8,6 +8,7 @@
 	import { applyServiceChange, scenarioFrom } from '#lib/serviceChanges.js';
 	import { resolve } from '$app/paths';
 	import { connection } from '#lib/connection.svelte.js';
+	import { recalled, remember } from '#lib/rode.js';
 	import { onMount } from 'svelte';
 
 	/** @typedef {{ id: string, name: string, loc: number[] }} Stop */
@@ -25,6 +26,7 @@
 		q = Object.fromEntries(new URLSearchParams(location.search));
 		change = scenarioFrom(location.search);
 		conn = connection(q);
+		rode = recalled(q);
 		const id = q.id;
 		if (!id || !q.stop || !q.to) return void (failed = true);
 		getJSON(`/routes/${id}`).then(
@@ -78,7 +80,7 @@
 	// ahead again means the bus has already passed your stop (it's on its next loop).
 	let rode = $state(false);
 	$effect(() => {
-		if (boarded) rode = true;
+		if (boarded && !rode && q) ((rode = true), remember(q, destEta));
 	});
 	const arrived = $derived(!!prog && (prog.arrived || (rode && !boarded)));
 	const nextRow = $derived(prog?.rows.find((r, i) => i > 0 && !r.passed));
@@ -399,7 +401,9 @@
 														? `, ${Math.max(1, Math.round((connNext - Date.parse(destEta)) / 60000))} min after you get there`
 														: ''
 											}.`
-										: `Checking the next ${conn.name}…`}
+										: conn.checked
+											? `No ${conn.name} is reporting right now. Check its live route before you get off.`
+											: `Checking the next ${conn.name}…`}
 								</p>
 								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- connection() builds on resolve('/route') -->
 								<a class="go" href={conn.href}>See {conn.name} live</a>
