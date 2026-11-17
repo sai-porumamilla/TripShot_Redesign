@@ -1,9 +1,10 @@
 <script>
 	import Icon from '#lib/Icon.svelte';
-	import { SCENARIOS } from '#lib/serviceChanges.js';
+	import { DELAYS, SCENARIOS } from '#lib/serviceChanges.js';
 	import { resolve } from '$app/paths';
 
 	const mlk = SCENARIOS['mlk-closure'];
+	const traffic = DELAYS.calhoun;
 </script>
 
 <svelte:head>
@@ -22,6 +23,17 @@
 		<p class="label"><Icon name="notice-clock" />Past alert · Oct 7</p>
 		<p class="text">{mlk.notice}</p>
 		<a class="action" href="{resolve('/')}?scenario={mlk.id}">Replay it on live buses</a>
+	</div>
+
+	<div class="card past">
+		<p class="label"><Icon name="notice-clock" />Replay · the bus runs late</p>
+		<p class="text">
+			{traffic.reason} See how the app explains a {traffic.minutes}-min delay, moves your leave-now
+			alert and compares faster options.
+		</p>
+		<a class="action" href="{resolve('/search')}/?to=Ada%20%26%20Ravine&delay=calhoun"
+			>Replay a delay</a
+		>
 	</div>
 </section>
 

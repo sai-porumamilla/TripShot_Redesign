@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { applyServiceChange, scenarioFrom, SCENARIOS } from './serviceChanges.js';
+import {
+	applyDelay,
+	applyServiceChange,
+	delayFrom,
+	scenarioFrom,
+	SCENARIOS
+} from './serviceChanges.js';
 import { departures, LANGSAM } from './departures.js';
 
 const transitRow = { id: 'TR', name: 'Transit Row', loc: [39.13431, -84.51395] };
@@ -47,5 +53,13 @@ describe('service changes', () => {
 		expect(scenarioFrom('?scenario=mlk-closure')?.id).toBe('mlk-closure');
 		expect(scenarioFrom('?scenario=nope')).toBe(null);
 		expect(scenarioFrom('')).toBe(null);
+	});
+
+	it('replays a delay by pushing every ETA back, read from ?delay=', () => {
+		const vehicles = [{ name: '3016', next: [{ stopId: 'TR', eta: at(4) }] }];
+		const late = applyDelay(vehicles, delayFrom('?delay=calhoun')?.minutes ?? 0);
+		expect(late[0]).toEqual({ name: '3016', next: [{ stopId: 'TR', eta: at(9) }] });
+		expect(vehicles[0].next[0].eta).toBe(at(4)); // live data left untouched
+		expect(delayFrom('?delay=nope')).toBe(null);
 	});
 });
