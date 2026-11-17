@@ -2,6 +2,7 @@
 	// Figma icons, placed exactly as in the design: each SVG keeps its proportions and
 	// sits at the offset Figma gives it inside a square slot (positions in % of the slot).
 	// Size: the `size` prop, or a parent's `--icon-size`, default 24px.
+	// Color: the text color (each SVG is used as a mask), so icons follow the theme.
 	import bell from '#lib/assets/icons/bell.svg';
 	import bus from '#lib/assets/icons/bus.svg';
 	import chevron from '#lib/assets/icons/chevron.svg';
@@ -30,14 +31,14 @@
 </script>
 
 <span class="icon" style:--icon-size={size ? `${size}px` : undefined} aria-hidden="true">
-	<img
-		{src}
-		alt=""
+	<span
+		class="glyph"
+		style:--src={`url("${src}")`}
 		style:left={pct(l)}
 		style:top={pct(t)}
 		style:width={pct(w)}
 		style:height={pct(h)}
-	/>
+	></span>
 </span>
 
 <style>
@@ -48,9 +49,10 @@
 		width: var(--icon-size, 24px);
 		height: var(--icon-size, 24px);
 	}
-	img {
+	.glyph {
 		position: absolute;
-		display: block;
-		max-width: none;
+		background: currentColor;
+		mask: var(--src) center / 100% 100% no-repeat;
+		-webkit-mask: var(--src) center / 100% 100% no-repeat;
 	}
 </style>

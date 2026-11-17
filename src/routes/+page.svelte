@@ -238,6 +238,10 @@
 		height: 50px;
 		padding-left: 14px;
 	}
+	.field :global(.icon),
+	.chev {
+		color: var(--muted);
+	}
 	.field input {
 		flex: 1;
 		min-width: 0;
@@ -283,7 +287,7 @@
 	.change-map {
 		height: 160px;
 		margin-top: 12px;
-		border: 1px solid #b8bdc8;
+		border: 1px solid var(--line-strong);
 		border-radius: 12px;
 		overflow: hidden;
 	}
@@ -410,7 +414,7 @@
 			border: 0;
 			border-radius: 10px;
 			background: var(--action);
-			color: #fff;
+			color: var(--on-action);
 			font-size: 16px;
 			font-weight: 700;
 			cursor: pointer;

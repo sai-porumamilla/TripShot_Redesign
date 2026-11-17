@@ -10,6 +10,20 @@
 			rel="stylesheet"
 			href="https://fonts.googleapis.com/css2?family=Inter:wght@700&family=Roboto:wght@400;700&display=swap"
 		/>
+		<script>
+			// NightRide look from 10 PM to 2 AM campus time, set before first paint.
+			// ?theme=night or ?theme=day previews either; it sticks while you navigate in the app.
+			(() => {
+				const q = new URLSearchParams(location.search).get('theme');
+				const h = +new Date().toLocaleString('en-US', {
+					timeZone: 'America/New_York',
+					hour: 'numeric',
+					hourCycle: 'h23'
+				});
+				if (q === 'night' || (q !== 'day' && (h >= 22 || h < 2)))
+					document.documentElement.dataset.theme = 'night';
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

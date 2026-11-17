@@ -3,7 +3,6 @@
 	// Supports the stop list, never replaces it: everything shown here is also in the list.
 	import 'leaflet/dist/leaflet.css';
 	import { onMount } from 'svelte';
-	import yourStopSvg from '#lib/assets/map/your-stop.svg';
 	import destinationSvg from '#lib/assets/map/destination.svg';
 	import youSvg from '#lib/assets/map/you.svg';
 	import busSvg from '#lib/assets/map/bus-icon.svg';
@@ -133,7 +132,13 @@
 				.addTo(routeLayer);
 		if (your)
 			Lf.marker(ll(your.loc), {
-				icon: Lf.divIcon(img(yourStopSvg, 22)),
+				// drawn in CSS so it takes the theme's accent (ink by day, amber at night)
+				icon: Lf.divIcon({
+					html: '<span class="your-stop"></span>',
+					className: 'pin',
+					iconSize: [22, 22],
+					iconAnchor: [11, 11]
+				}),
 				title: your.name,
 				keyboard: false,
 				zIndexOffset: 500
@@ -150,6 +155,7 @@
 		if (closure && your) {
 			Lf.polyline(closure.road.map(ll), {
 				color: '#16181c',
+				className: 'map-ink',
 				weight: 5,
 				opacity: 0.85,
 				dashArray: '4 3',
@@ -194,6 +200,7 @@
 		if (goal && dest && distanceM(goal, dest.loc) > 40) {
 			Lf.polyline([ll(dest.loc), ll(goal)], {
 				color: '#16181c',
+				className: 'map-ink',
 				weight: 3,
 				dashArray: '2 8',
 				lineCap: 'round',
@@ -322,12 +329,28 @@
 	}
 	.map {
 		height: 100%;
-		background: #fff;
+		background: var(--surface);
 	}
 	/* Muted basemap: gray tiles at half strength over white, so the route stands out */
 	.map :global(.muted-tiles) {
 		filter: grayscale(1);
 		opacity: 0.5;
+	}
+	/* night: the same tiles inverted to a dark map */
+	:global(:root[data-theme='night']) .map :global(.muted-tiles) {
+		filter: grayscale(1) invert(1) brightness(0.9);
+		opacity: 0.55;
+	}
+	.map :global(.map-ink) {
+		stroke: var(--map-ink);
+	}
+	.map :global(.your-stop) {
+		display: block;
+		width: 22px;
+		height: 22px;
+		border: 4px solid #fff;
+		border-radius: 50%;
+		background: var(--accent);
 	}
 	.map :global(.pin) {
 		background: none;
@@ -343,7 +366,7 @@
 		height: 36px;
 		border: 3px solid #fff;
 		border-radius: 18px;
-		background: var(--ink);
+		background: #16181c;
 		box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
 	}
 	.map :global(.home) {
@@ -353,7 +376,7 @@
 		height: 24px;
 		border: 2px solid #fff;
 		border-radius: 6px;
-		background: var(--ink);
+		background: #16181c;
 	}
 	.map :global(.stale .bus) {
 		background: var(--muted);
@@ -367,7 +390,7 @@
 		font:
 			700 12px/1.2 'Roboto',
 			sans-serif;
-		color: var(--ink);
+		color: #16181c; /* labels stay white with dark text in both themes */
 	}
 	.map :global(.map-label::before) {
 		display: none;
@@ -376,7 +399,7 @@
 		padding: 1px 4px;
 		font-size: 9px;
 		color: var(--muted);
-		background: rgb(255 255 255 / 0.85);
+		background: color-mix(in srgb, var(--surface) 85%, transparent);
 	}
 	.recenter {
 		position: absolute;
@@ -388,9 +411,12 @@
 		width: 36px;
 		height: 36px;
 		padding: 0;
-		border: 1px solid #b8bdc8;
+		border: 1px solid var(--line-strong);
 		border-radius: 8px;
-		background: #fff;
+		background: var(--surface);
 		cursor: pointer;
+	}
+	:global(:root[data-theme='night']) .recenter img {
+		filter: invert(1);
 	}
 </style>
