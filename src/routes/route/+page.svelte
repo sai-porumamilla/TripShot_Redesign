@@ -24,10 +24,12 @@
 	let failed = $state(false);
 	let now = $state(Date.now());
 	let change = $state(/** @type {import('#lib/serviceChanges.js').ServiceChange | null} */ (null));
+	let query = $state(''); // carried on to the on-board screen (destination, scenario, final walk)
 
 	onMount(() => {
 		// read the query in the browser: the page is prerendered without one
 		const q = new URLSearchParams(location.search);
+		query = location.search;
 		change = scenarioFrom(location.search);
 		const id = q.get('id');
 		if (!id) return void (failed = true);
@@ -270,6 +272,17 @@
 					>
 						{alertOn ? 'Cancel alert' : 'Tell me when to leave'}
 					</button>
+					{#if dest && pick}
+						<a
+							class="onboard"
+							href="{resolve('/trip')}/{query}&bus={encodeURIComponent(pick.vehicle.name)}"
+							onclick={() =>
+								// ask now, while there's a tap: the on-board alert needs it later
+								'Notification' in window &&
+								Notification.permission === 'default' &&
+								Notification.requestPermission()}>I’m on the bus</a
+						>
+					{/if}
 					<p class="helper">
 						{#if alertOn && leaveAt !== null}
 							We’ll alert you at {clock(leaveAt)}. Keep this page open.
@@ -510,6 +523,17 @@
 	.action:disabled {
 		opacity: 0.4;
 		cursor: default;
+	}
+	.onboard {
+		display: grid;
+		place-items: center;
+		height: 44px;
+		margin-top: 8px;
+		border: 2px solid var(--ink);
+		border-radius: 12px;
+		color: var(--ink);
+		font-weight: 700;
+		text-decoration: none;
 	}
 	.helper {
 		margin-top: 8px;
