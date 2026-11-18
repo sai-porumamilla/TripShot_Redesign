@@ -7,9 +7,7 @@ Built by Jonathan Cheruiyot, Sai Porumamilla and Evan Soreefan for the UI/UX cou
 - **Try it:** https://sai-porumamilla.github.io/TripShot_Redesign/ (live buses, on your phone or a laptop)
 - **Source:** https://github.com/sai-porumamilla/TripShot_Redesign
 - **Figma:** https://www.figma.com/design/F7E1kaUqpjY6kxHisKDWsN (page "Final design")
-- **Demo video:** _link to add_
-
-> **To fill in before publishing:** the demo video link, and check that the Figma file is shared as "anyone with the link can view".
+- **Demo video (2 min):** https://youtu.be/vjof9EEIPKQ
 
 <p>
   <img src="docs/screenshots/day/phone-01-running-now.png" width="220" alt="Running now: the next shuttles near you">
@@ -48,10 +46,6 @@ It is a working prototype on **live UC shuttle data**, not a mock-up. Every scre
 - For CS students with classes in Digital Futures, the shuttle has become a necessity.
 - It matters for safety. NightRide runs late so students can get home after a long night of studying or a night out with friends.
 - There's a lot of room to improve the interface.
-
-## Research and critique
-
-> **To fill in:** the brief asks for at least two research methods with specific findings (for example a survey, SUS scores, a think-aloud study, or timed tasks). Add the method names, who took part, and the results here. Everything below comes from our critique presentation.
 
 ### How TripShot works today: two core tasks
 
@@ -94,8 +88,6 @@ Building on TripShot's live data confirmed three of these problems in a concrete
 - **Status labels are unreliable.** TripShot marks nearly every bus as "Delayed", so its own delay flag tells a rider nothing. Our app ignores it and works out delays from how much the arrival time actually slips (see [Delays](#delays-and-whats-still-faster)).
 - **Closures are free text only.** On Oct 7, an MLK Drive closure moved boarding from Transit Row to Jefferson Avenue for up to an hour, sometime between 9:30 and 11:30 AM. TripShot only published it as a paragraph in the alerts list. Nothing on the map or the arrival times changed, so a rider who missed the alert went to a closed stop.
 - **Arrival times only cover one lap.** TripShot lists each bus's arrival times for its current loop only, and runs each day route as scheduled shifts (7 AM–2 PM and 2–10 PM). When a bus is about to pass your stop before you can walk there, the data says nothing about when it comes back. An early version of our app fell into this: it sent a rider at University Edge on a 9-minute walk to chase the bus to a farther stop, when the right answer was to wait about 14 minutes at the stop 80 m away.
-
-> **To fill in:** feedback on the design plans. The brief asks how we checked, before building, that the redesign would address these problems: who looked at the Figma frames, how, and what changed as a result.
 
 ## From findings to design goals
 
@@ -382,8 +374,6 @@ The trip logic (`trips.js`, `departures.js`, `route.js`, `schedule.js`, `service
 The app uses your real location only within 3 km of campus. Anywhere else, it pretends you're at Langsam Library, so the demo works for graders off campus.
 
 ## Use of AI
-
-> **To review:** check this section matches how the team actually worked, and edit it to fit.
 
 We used **Claude Code** (Anthropic's coding assistant) throughout the build:
 
